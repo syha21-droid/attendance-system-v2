@@ -37,6 +37,8 @@ export default function CoursePage() {
   const [faceDetected, setFaceDetected] = useState(false) // 얼굴 감지
   const [environmentOk, setEnvironmentOk] = useState(false) // 환경 확인
   const [brightness, setBrightness] = useState<number | null>(null) // 밝기 값 (사진 대신)
+  const [exitCodeInput, setExitCodeInput] = useState('') // 퇴장 코드 입력
+  const [exitCodeVerified, setExitCodeVerified] = useState(false) // 퇴장 코드 검증
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -355,15 +357,55 @@ export default function CoursePage() {
     }
   }
 
+  const verifyExitCode = () => {
+    if (!exitCodeInput.trim()) {
+      toast.error('퇴장 코드를 입력하세요')
+      return
+    }
+
+    const codeKey = `course_code_${courseId}`
+    const savedCode = localStorage.getItem(codeKey)
+
+    if (!savedCode) {
+      toast.error('❌ 현재 활성 코드가 없습니다.\n관리자에게 문의하세요.')
+      return
+    }
+
+    const codeData = JSON.parse(savedCode)
+
+    // 코드 유효성 확인
+    if (new Date() > new Date(codeData.expiresAt)) {
+      toast.error('❌ 코드가 만료되었습니다.\n새 코드를 요청하세요.')
+      setExitCodeInput('')
+      return
+    }
+
+    // 코드 일치 확인
+    if (exitCodeInput.trim() === codeData.code) {
+      setExitCodeVerified(true)
+      toast.success('✅ 퇴장 코드 확인 완료!')
+      setExitCodeInput('')
+    } else {
+      toast.error('❌ 잘못된 코드입니다.')
+      setExitCodeInput('')
+    }
+  }
+
   const handleExit = () => {
     if (!user || !isAttended) {
       toast.error('입장하지 않았습니다')
       return
     }
 
-    // 코드 검증 필수
+    // 입장 코드 검증 필수
     if (!codeVerified) {
-      toast.error('❌ 출석 확인 코드를 먼저 입력하세요!')
+      toast.error('❌ 입장 확인 코드를 먼저 입력하세요!')
+      return
+    }
+
+    // 퇴장 코드 검증 필수
+    if (!exitCodeVerified) {
+      toast.error('❌ 퇴장 확인 코드를 먼저 입력하세요!')
       return
     }
 
@@ -854,9 +896,38 @@ export default function CoursePage() {
                           <p className="text-red-700 font-bold text-base">⚠️ 중요 공지</p>
                           <p className="text-sm text-red-700 mt-1">강의 종료 1분 이내에 퇴장하면<br/>출석 기록이 취소됩니다!</p>
                         </div>
+
+                        {!exitCodeVerified ? (
+                          <div className="bg-orange-50 border-2 border-orange-300 p-3 rounded-lg">
+                            <p className="text-orange-800 font-bold text-base mb-2">🔐 퇴장 확인 코드 입력</p>
+                            <p className="text-sm text-orange-700 mb-3">관리자가 공지한 퇴장 코드를 입력하세요:</p>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={exitCodeInput}
+                                onChange={(e) => setExitCodeInput(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && verifyExitCode()}
+                                placeholder="4자리 코드"
+                                className="flex-1 px-3 py-2 border-2 border-orange-300 rounded-lg text-center text-2xl font-bold tracking-widest text-gray-900"
+                                maxLength={4}
+                              />
+                              <button
+                                onClick={verifyExitCode}
+                                className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-orange-700 transition"
+                              >
+                                ✓
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-green-100 border-2 border-green-400 p-3 rounded-lg">
+                            <p className="text-green-700 font-bold text-base">✅ 퇴장 코드 확인 완료!</p>
+                          </div>
+                        )}
+
                         <button
                           onClick={handleExit}
-                          disabled={!codeVerified}
+                          disabled={!exitCodeVerified}
                           className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           🚪 퇴장
