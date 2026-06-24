@@ -25,6 +25,7 @@ export default function CoursePage() {
   const [schedule, setSchedule] = useState<any[]>([])
   const [currentClass, setCurrentClass] = useState<any>(null)
   const [absenceReason, setAbsenceReason] = useState('')
+  const [absenceCategory, setAbsenceCategory] = useState<'ceremony' | 'hospital' | 'exam' | null>(null)
   const [selectedStatus, setSelectedStatus] = useState<'present' | 'late' | 'absent' | 'excused' | null>(null)
   const [isConfirmingAttendance, setIsConfirmingAttendance] = useState(false)
   const [selectedEpisode, setSelectedEpisode] = useState(1)
@@ -423,9 +424,18 @@ export default function CoursePage() {
     toast.success(`✅ 퇴장 완료!\n${attendanceRecord.class} (${attendanceRecord.enterTime} ~ ${exitTime})`)
   }
 
+  const getCategoryLabel = (category: string): string => {
+    const labels: { [key: string]: string } = {
+      ceremony: '경조사',
+      hospital: '병원',
+      exam: '자격증/시험',
+    }
+    return labels[category] || category
+  }
+
   const handleExcuse = () => {
-    if (!user || !course || !currentClass || !absenceReason.trim()) {
-      toast.error('공가 사유를 입력하세요')
+    if (!user || !course || !currentClass || !absenceCategory || !absenceReason.trim()) {
+      toast.error('공가 사유 카테고리와 상세 정보를 입력하세요')
       return
     }
 
@@ -439,6 +449,8 @@ export default function CoursePage() {
       status: 'excused',
       class: currentClass.name,
       reason: absenceReason,
+      category: absenceCategory,
+      categoryLabel: getCategoryLabel(absenceCategory),
     }
 
     const attendanceKey = `attendance_${user.id}_${courseId}`
@@ -448,8 +460,9 @@ export default function CoursePage() {
 
     loadAttendanceData(user.id)
     setAbsenceReason('')
+    setAbsenceCategory(null)
     setIsConfirmingAttendance(false)
-    toast.success(`🏥 공가 신청 완료: ${absenceReason}`)
+    toast.success(`🏥 공가 신청 완료!\n[${getCategoryLabel(absenceCategory!)}] ${absenceReason}`)
   }
 
   const handleDropout = () => {
@@ -714,24 +727,67 @@ export default function CoursePage() {
                     </div>
                   ) : selectedStatus === 'excused' ? (
                     <div className="space-y-3">
-                      <textarea
-                        value={absenceReason}
-                        onChange={(e) => setAbsenceReason(e.target.value)}
-                        placeholder="공가 사유를 입력하세요 (예: 병원 방문, 개인사정 등)"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none text-gray-900 font-semibold"
-                        rows={3}
-                      />
+                      <div>
+                        <p className="text-sm font-bold text-gray-700 mb-2">사유 분류:</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            onClick={() => setAbsenceCategory('ceremony')}
+                            className={`py-2 px-3 rounded-lg font-semibold text-sm transition ${
+                              absenceCategory === 'ceremony'
+                                ? 'bg-blue-600 text-white border-2 border-blue-600'
+                                : 'bg-white text-gray-900 border-2 border-gray-300 hover:border-blue-400'
+                            }`}
+                          >
+                            💒 경조사
+                          </button>
+                          <button
+                            onClick={() => setAbsenceCategory('hospital')}
+                            className={`py-2 px-3 rounded-lg font-semibold text-sm transition ${
+                              absenceCategory === 'hospital'
+                                ? 'bg-blue-600 text-white border-2 border-blue-600'
+                                : 'bg-white text-gray-900 border-2 border-gray-300 hover:border-blue-400'
+                            }`}
+                          >
+                            🏥 병원
+                          </button>
+                          <button
+                            onClick={() => setAbsenceCategory('exam')}
+                            className={`py-2 px-3 rounded-lg font-semibold text-sm transition ${
+                              absenceCategory === 'exam'
+                                ? 'bg-blue-600 text-white border-2 border-blue-600'
+                                : 'bg-white text-gray-900 border-2 border-gray-300 hover:border-blue-400'
+                            }`}
+                          >
+                            📝 자격증/시험
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-bold text-gray-700 mb-2">상세 사유:</p>
+                        <textarea
+                          value={absenceReason}
+                          onChange={(e) => setAbsenceReason(e.target.value)}
+                          placeholder="구체적인 사유를 입력하세요"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none text-gray-900 font-semibold"
+                          rows={2}
+                        />
+                      </div>
+
                       <div className="flex gap-2">
                         <button
                           onClick={handleExcuse}
-                          className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700"
+                          disabled={!absenceCategory || !absenceReason.trim()}
+                          className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                         >
-                          확인
+                          ✅ 공가 신청
                         </button>
                         <button
                           onClick={() => {
                             setIsConfirmingAttendance(false)
                             setSelectedStatus(null)
+                            setAbsenceCategory(null)
+                            setAbsenceReason('')
                           }}
                           className="flex-1 bg-gray-600 text-white py-2 rounded-lg font-medium hover:bg-gray-700"
                         >
