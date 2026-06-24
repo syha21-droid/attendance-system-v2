@@ -285,8 +285,12 @@ export default function AdminPage() {
         <div className="bg-white rounded-lg shadow p-8 mt-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-6">🎯 관리 메뉴</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button onClick={() => router.push('/admin/statistics')} className="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition text-left cursor-pointer">
+              <p className="font-semibold text-purple-900">📊 통계 대시보드</p>
+              <p className="text-sm text-purple-700">강의별 출석 통계를 확인합니다</p>
+            </button>
             <button onClick={() => router.push('/admin/attendance')} className="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition text-left cursor-pointer">
-              <p className="font-semibold text-blue-900">📊 출석 현황 조회</p>
+              <p className="font-semibold text-blue-900">📋 출석 현황 조회</p>
               <p className="text-sm text-blue-700">학생별 출석 현황을 조회합니다</p>
             </button>
             <button onClick={() => router.push('/admin/students')} className="p-4 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition text-left cursor-pointer">

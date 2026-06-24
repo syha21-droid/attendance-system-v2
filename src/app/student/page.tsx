@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { LogOut, BookOpen } from 'lucide-react'
+import { LogOut, BookOpen, Award } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Course } from '@/types'
 
@@ -92,13 +92,22 @@ export default function StudentPage() {
       <nav className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">학생 대시보드</h1>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg flex items-center gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            로그아웃
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push('/student/grades')}
+              className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg flex items-center gap-2 font-medium"
+            >
+              <Award className="w-4 h-4" />
+              성적표
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              로그아웃
+            </button>
+          </div>
         </div>
       </nav>
 

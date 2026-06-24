@@ -251,6 +251,99 @@ export default function CoursePage() {
     router.push('/login')
   }
 
+  const canDownloadMaterial = (material: any): boolean => {
+    // 특강식 강의
+    if (course?.courseType === 'session') {
+      if (!material.availableUntilClass) {
+        return true // 제한 없음
+      }
+      if (!currentClass) {
+        return true
+      }
+      return currentClass.number <= material.availableUntilClass
+    }
+
+    // 회차식 강의의 경우
+    if (!material.availableUntilEpisode) {
+      return true // 제한 없음
+    }
+
+    // 현재 회차가 공개 종료 회차보다 앞이면 다운로드 가능
+    if (selectedEpisode < material.availableUntilEpisode) {
+      return true
+    }
+
+    // 현재 회차가 공개 종료 회차와 같으면, 현재 교시 확인
+    if (selectedEpisode === material.availableUntilEpisode) {
+      if (!currentClass || !material.availableUntilClass) {
+        return true
+      }
+
+      // 현재 교시가 공개 종료 교시 이전이면 다운로드 가능
+      return currentClass.number <= material.availableUntilClass
+    }
+
+    // 현재 회차가 공개 종료 회차보다 뒤면 다운로드 불가
+    return false
+  }
+
+  const getMaterialStatus = (material: any): { canDownload: boolean; message: string } => {
+    // 특강식 강의
+    if (course?.courseType === 'session') {
+      if (!material.availableUntilClass) {
+        return { canDownload: true, message: '' }
+      }
+
+      if (!currentClass) {
+        return { canDownload: true, message: '' }
+      }
+
+      if (currentClass.number <= material.availableUntilClass) {
+        return {
+          canDownload: true,
+          message: `(${material.availableUntilClass}교시까지 다운로드 가능)`
+        }
+      }
+
+      return {
+        canDownload: false,
+        message: `(${material.availableUntilClass}교시까지만 다운로드 가능)`
+      }
+    }
+
+    // 회차식 강의
+    if (!material.availableUntilEpisode) {
+      return { canDownload: true, message: '' }
+    }
+
+    if (selectedEpisode < material.availableUntilEpisode) {
+      return { canDownload: true, message: '' }
+    }
+
+    if (selectedEpisode === material.availableUntilEpisode) {
+      if (!currentClass || !material.availableUntilClass) {
+        return { canDownload: true, message: '' }
+      }
+
+      if (currentClass.number <= material.availableUntilClass) {
+        return {
+          canDownload: true,
+          message: `(${material.availableUntilClass}교시까지 다운로드 가능)`
+        }
+      }
+
+      return {
+        canDownload: false,
+        message: `(${material.availableUntilEpisode}회차 ${material.availableUntilClass}교시까지만 다운로드 가능)`
+      }
+    }
+
+    return {
+      canDownload: false,
+      message: `(${material.availableUntilEpisode}회차까지만 다운로드 가능)`
+    }
+  }
+
   if (!course || !user) {
     return <div className="min-h-screen flex items-center justify-center">로딩 중...</div>
   }
@@ -461,26 +554,41 @@ export default function CoursePage() {
             <p className="text-gray-500 text-center py-8">등록된 강의 자료가 없습니다</p>
           ) : (
             <div className="space-y-3">
-              {materials.map((material: any) => (
-                <div
-                  key={material.id}
-                  onClick={() => {
-                    if (material.data) {
-                      const link = document.createElement('a')
-                      link.href = material.data
-                      link.download = material.name
-                      link.click()
-                      toast.success(`✅ ${material.name} 다운로드 시작`)
-                    }
-                  }}
-                  className="border-l-4 border-blue-500 pl-4 py-2 hover:bg-blue-50 p-3 rounded transition cursor-pointer bg-gray-50 hover:shadow-md"
-                >
-                  <p className="font-semibold text-gray-900">📄 {material.name}</p>
-                  <p className="text-sm text-gray-600">{material.size}</p>
-                  <p className="text-xs text-gray-500 mt-1">📅 {material.uploadedAt}</p>
-                  <p className="text-xs text-blue-600 mt-2">💾 클릭해서 다운로드</p>
-                </div>
-              ))}
+              {materials.map((material: any) => {
+                const { canDownload, message } = getMaterialStatus(material)
+                return (
+                  <div
+                    key={material.id}
+                    onClick={() => {
+                      if (!canDownload) {
+                        toast.error(`❌ 다운로드 불가능${message}`)
+                        return
+                      }
+                      if (material.data) {
+                        const link = document.createElement('a')
+                        link.href = material.data
+                        link.download = material.name
+                        link.click()
+                        toast.success(`✅ ${material.name} 다운로드 시작`)
+                      }
+                    }}
+                    className={`border-l-4 pl-4 py-2 p-3 rounded transition ${
+                      canDownload
+                        ? 'border-blue-500 hover:bg-blue-50 cursor-pointer bg-gray-50 hover:shadow-md'
+                        : 'border-red-500 bg-red-50 cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    <p className="font-semibold text-gray-900">📄 {material.name}</p>
+                    <p className="text-sm text-gray-600">{material.size}</p>
+                    <p className="text-xs text-gray-500 mt-1">📅 {material.uploadedAt}</p>
+                    {canDownload ? (
+                      <p className="text-xs text-blue-600 mt-2">💾 클릭해서 다운로드 {message}</p>
+                    ) : (
+                      <p className="text-xs text-red-600 mt-2">🔒 다운로드 불가능 {message}</p>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

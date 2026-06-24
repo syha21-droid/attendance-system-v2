@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { LogOut, ArrowLeft, Upload, Trash2, Download } from 'lucide-react'
+import { LogOut, ArrowLeft, Upload, Trash2, Download, QrCode, X } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { useStore } from '@/store/useStore'
 import { supabase } from '@/lib/supabase'
 import * as XLSX from 'xlsx'
@@ -34,7 +35,7 @@ export default function CourseDetailPage() {
   const setUser = useStore((state) => state.setUser)
 
   const [course, setCourse] = useState<Course | null>(null)
-  const [materials, setMaterials] = useState<CourseMaterial[]>([])
+  const [materials, setMaterials] = useState<any[]>([])
   const [students, setStudents] = useState<StudentAttendance[]>([])
   const [newMaterialName, setNewMaterialName] = useState('')
   const [loading, setLoading] = useState(true)
@@ -48,6 +49,10 @@ export default function CourseDetailPage() {
   const [absentThreshold, setAbsentThreshold] = useState(30)
   const [isEditingSchedule, setIsEditingSchedule] = useState(false)
   const [selectedEpisode, setSelectedEpisode] = useState(1)
+  const [materialAvailableEpisode, setMaterialAvailableEpisode] = useState<number | null>(null)
+  const [materialAvailableClass, setMaterialAvailableClass] = useState<number | null>(null)
+  const [showQRModal, setShowQRModal] = useState(false)
+  const [selectedQRClass, setSelectedQRClass] = useState<number | null>(null)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -232,15 +237,23 @@ export default function CourseDetailPage() {
         size: `${fileSizeInMB}MB`,
         uploadedAt: new Date().toLocaleDateString('ko-KR'),
         data: fileData,
+        availableUntilEpisode: course.courseType === 'episode' ? materialAvailableEpisode : null,
+        availableUntilClass: materialAvailableClass,
       }
 
       const updated = [...materials, newMaterial]
       const key = `course_materials_${course.id}`
       localStorage.setItem(key, JSON.stringify(updated))
       setMaterials(updated)
-      toast.success('✅ 강의 자료가 추가되었습니다')
+
+      const episodeInfo = newMaterial.availableUntilEpisode
+        ? ` (${newMaterial.availableUntilEpisode}회차 ${newMaterial.availableUntilClass}교시까지 공개)`
+        : ''
+      toast.success(`✅ 강의 자료가 추가되었습니다${episodeInfo}`)
       setNewMaterialName('')
       setSelectedFile(null)
+      setMaterialAvailableEpisode(null)
+      setMaterialAvailableClass(null)
     }
 
     reader.readAsDataURL(selectedFile)
@@ -313,6 +326,7 @@ export default function CourseDetailPage() {
       name: `${schedule.length + 1}교시`,
       startTime: '09:00',
       endTime: '10:00',
+      instructor: '강사 미지정',
     }
     setSchedule([...schedule, newSlot])
   }
@@ -495,6 +509,64 @@ export default function CourseDetailPage() {
                     <p className="text-sm text-gray-600 mt-2">선택됨: {selectedFile.name}</p>
                   )}
                 </div>
+
+                <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-lg">
+                  <p className="text-sm font-semibold text-indigo-900 mb-3">
+                    🔒 공개 범위 설정
+                  </p>
+                  <div className="space-y-2">
+                    {course?.courseType === 'episode' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          공개 종료 회차
+                        </label>
+                        <select
+                          value={materialAvailableEpisode || ''}
+                          onChange={(e) => setMaterialAvailableEpisode(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full px-3 py-1 text-sm border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">제한 없음</option>
+                          {Array.from({ length: course.episodeCount || 1 }, (_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                              {i + 1}회차
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {(!course?.courseType || course?.courseType === 'session' || materialAvailableEpisode) && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          공개 종료 교시 {course?.courseType === 'session' ? '(특강)' : ''}
+                        </label>
+                        <select
+                          value={materialAvailableClass || ''}
+                          onChange={(e) => setMaterialAvailableClass(e.target.value ? Number(e.target.value) : null)}
+                          className="w-full px-3 py-1 text-sm border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">제한 없음</option>
+                          {schedule.map((cls: any) => (
+                            <option key={cls.number} value={cls.number}>
+                              {cls.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-indigo-700 mt-2">
+                      {course?.courseType === 'episode'
+                        ? materialAvailableEpisode
+                          ? `${materialAvailableEpisode}회차 ${materialAvailableClass ? `${materialAvailableClass}교시` : ''} 까지 다운로드 가능`
+                          : '모든 회차에서 다운로드 가능'
+                        : materialAvailableClass
+                        ? `${materialAvailableClass}교시 까지 다운로드 가능`
+                        : '제한 없음'}
+                    </p>
+                  </div>
+                </div>
+
                 <button
                   onClick={handleAddMaterial}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition disabled:opacity-50"
@@ -519,6 +591,11 @@ export default function CourseDetailPage() {
                           📄 {material.name}
                         </p>
                         <p className="text-xs text-gray-500">{material.uploadedAt}</p>
+                        {material.availableUntilEpisode && (
+                          <p className="text-xs text-indigo-600 mt-1">
+                            🔒 {material.availableUntilEpisode}회차 {material.availableUntilClass}교시까지
+                          </p>
+                        )}
                       </div>
                       <button
                         onClick={() => handleDeleteMaterial(material.id)}
@@ -648,39 +725,53 @@ export default function CourseDetailPage() {
               {/* 시간표 설정 */}
               <div className="space-y-4 mb-6">
                 {schedule.map((timeSlot: any, index: number) => (
-                  <div key={index} className="flex gap-4 items-end bg-gray-50 p-4 rounded-lg">
-                    <div className="flex-1">
+                  <div key={index} className="space-y-3 bg-gray-50 p-4 rounded-lg">
+                    <div className="flex gap-4 items-end">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          시간대 이름
+                        </label>
+                        <input
+                          type="text"
+                          value={timeSlot.name}
+                          onChange={(e) => handleUpdateTimeSlot(index, 'name', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          placeholder="예: 1교시"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          시작 시간
+                        </label>
+                        <input
+                          type="time"
+                          value={timeSlot.startTime}
+                          onChange={(e) => handleUpdateTimeSlot(index, 'startTime', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          종료 시간
+                        </label>
+                        <input
+                          type="time"
+                          value={timeSlot.endTime}
+                          onChange={(e) => handleUpdateTimeSlot(index, 'endTime', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        시간대 이름
+                        강사
                       </label>
                       <input
                         type="text"
-                        value={timeSlot.name}
-                        onChange={(e) => handleUpdateTimeSlot(index, 'name', e.target.value)}
+                        value={timeSlot.instructor || '강사 미지정'}
+                        onChange={(e) => handleUpdateTimeSlot(index, 'instructor', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                        placeholder="예: 1교시"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        시작 시간
-                      </label>
-                      <input
-                        type="time"
-                        value={timeSlot.startTime}
-                        onChange={(e) => handleUpdateTimeSlot(index, 'startTime', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        종료 시간
-                      </label>
-                      <input
-                        type="time"
-                        value={timeSlot.endTime}
-                        onChange={(e) => handleUpdateTimeSlot(index, 'endTime', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        placeholder="강사명 입력"
                       />
                     </div>
                   </div>
@@ -752,10 +843,13 @@ export default function CourseDetailPage() {
                   <div className="space-y-2">
                     {schedule.map((timeSlot: any) => (
                       <div key={timeSlot.number} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
-                        <div>
+                        <div className="flex-1">
                           <p className="font-semibold text-gray-900">{timeSlot.name}</p>
                           <p className="text-sm text-gray-600">
                             {timeSlot.startTime} ~ {timeSlot.endTime}
+                          </p>
+                          <p className="text-xs text-blue-600 mt-1">
+                            👨‍🏫 {timeSlot.instructor || '강사 미지정'}
                           </p>
                         </div>
                       </div>
@@ -768,6 +862,110 @@ export default function CourseDetailPage() {
                   </div>
                 </>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* QR코드 출석 */}
+        <div className="bg-white rounded-lg shadow p-8 mt-8">
+          <h3 className="text-2xl font-bold text-gray-900 mb-6">📱 QR코드 출석</h3>
+
+          <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-6">
+            <p className="text-gray-700 mb-4">
+              강의 시작 시 학생들이 스캔할 수 있는 QR코드를 생성합니다.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {course?.courseType === 'episode' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    회차 선택
+                  </label>
+                  <select
+                    value={selectedEpisode}
+                    onChange={(e) => setSelectedEpisode(Number(e.target.value))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    {Array.from({ length: course.episodeCount || 1 }, (_, i) => (
+                      <option key={i + 1} value={i + 1}>
+                        {i + 1}회차
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  교시 선택
+                </label>
+                <select
+                  value={selectedQRClass || ''}
+                  onChange={(e) => setSelectedQRClass(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">선택하세요</option>
+                  {schedule.map((cls: any) => (
+                    <option key={cls.number} value={cls.number}>
+                      {cls.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button
+              onClick={() => selectedQRClass && setShowQRModal(true)}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition disabled:opacity-50"
+              disabled={!selectedQRClass}
+            >
+              <QrCode className="w-5 h-5" />
+              QR코드 생성
+            </button>
+          </div>
+
+          {/* QR코드 모달 */}
+          {showQRModal && selectedQRClass && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-gray-900">📱 QR코드 출석</h3>
+                  <button
+                    onClick={() => setShowQRModal(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-6 mb-4">
+                  <p className="text-sm text-gray-600 mb-4">
+                    {course?.courseType === 'episode'
+                      ? `${selectedEpisode}회차 ${schedule.find((c: any) => c.number === selectedQRClass)?.name}`
+                      : schedule.find((c: any) => c.number === selectedQRClass)?.name}
+                  </p>
+
+                  <div className="flex justify-center">
+                    <QRCodeSVG
+                      value={`${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/attend?courseId=${course?.id}&episode=${selectedEpisode}&class=${selectedQRClass}&token=${Date.now()}`}
+                      size={256}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-500 text-center mb-4">
+                  학생들이 이 QR코드를 스캔하면 자동 출석됩니다
+                </p>
+
+                <button
+                  onClick={() => setShowQRModal(false)}
+                  className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 rounded-lg"
+                >
+                  닫기
+                </button>
+              </div>
             </div>
           )}
         </div>
