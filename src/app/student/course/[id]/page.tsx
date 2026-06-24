@@ -228,21 +228,6 @@ export default function CoursePage() {
     return currentMinutes >= exitAvailableMinutes
   }
 
-  const getExitTimeRemaining = (): string => {
-    if (!currentClass) return ''
-
-    const now = new Date()
-    const currentMinutes = now.getHours() * 60 + now.getMinutes()
-
-    const [endHour, endMin] = currentClass.endTime.split(':').map(Number)
-    const endMinutes = endHour * 60 + endMin
-    const exitAvailableMinutes = endMinutes - 5
-
-    const remainingMinutes = exitAvailableMinutes - currentMinutes
-
-    if (remainingMinutes <= 0) return '지금 퇴장 가능'
-    return `${remainingMinutes}분 후 퇴장 가능`
-  }
 
   const handleExit = () => {
     if (!user || !isAttended) {
@@ -251,7 +236,7 @@ export default function CoursePage() {
     }
 
     if (!canExit()) {
-      toast.error(`❌ 아직 퇴장할 수 없습니다.\n${getExitTimeRemaining()}`)
+      toast.error('❌ 아직 퇴장할 수 없습니다.')
       return
     }
 
@@ -579,15 +564,12 @@ export default function CoursePage() {
                         </button>
                       </>
                     ) : (
-                      <>
-                        <p className="text-orange-700 font-bold text-base">⏳ {getExitTimeRemaining()}</p>
-                        <button
-                          disabled
-                          className="w-full bg-gray-400 text-white py-4 rounded-lg font-bold text-lg cursor-not-allowed opacity-50"
-                        >
-                          🚪 퇴장 (아직 불가)
-                        </button>
-                      </>
+                      <button
+                        disabled
+                        className="w-full bg-gray-400 text-white py-4 rounded-lg font-bold text-lg cursor-not-allowed opacity-50"
+                      >
+                        🚪 퇴장 (강의 진행 중)
+                      </button>
                     )}
                   </div>
                 )}
