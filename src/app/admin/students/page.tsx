@@ -153,9 +153,33 @@ export default function StudentsPage() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow p-8 mb-8">
-          <p className="text-gray-600 text-base font-semibold mb-2">총 등록 학생 수</p>
-          <p className="text-5xl font-bold text-purple-600">{students.length}</p>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow p-6">
+            <p className="text-gray-600 text-sm font-semibold mb-2">총 등록 학생</p>
+            <p className="text-3xl font-bold text-purple-600">{students.length}</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow p-6">
+            <p className="text-gray-600 text-sm font-semibold mb-2">✅ 활동 중</p>
+            <p className="text-3xl font-bold text-green-600">{students.filter(s => s.attendanceCount > 0).length}</p>
+            <p className="text-xs text-gray-600 mt-1">출석 기록 있음</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg shadow p-6">
+            <p className="text-gray-600 text-sm font-semibold mb-2">⏳ 미활동</p>
+            <p className="text-3xl font-bold text-yellow-600">{students.filter(s => s.attendanceCount === 0).length}</p>
+            <p className="text-xs text-gray-600 mt-1">미등록 또는 미출석</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow p-6">
+            <p className="text-gray-600 text-sm font-semibold mb-2">📊 평균 출석</p>
+            <p className="text-3xl font-bold text-blue-600">
+              {students.length > 0
+                ? Math.round(students.reduce((acc, s) => acc + s.attendanceCount, 0) / students.length)
+                : 0}
+            </p>
+            <p className="text-xs text-gray-600 mt-1">회/인</p>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-8">
@@ -179,7 +203,16 @@ export default function StudentsPage() {
                   } hover:shadow-lg transition`}
                 >
                   <div className="flex-1">
-                    <p className="font-bold text-lg text-gray-900">👤 {student.name}</p>
+                    <div className="flex items-center gap-3 mb-2">
+                      <p className="font-bold text-lg text-gray-900">👤 {student.name}</p>
+                      <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                        student.attendanceCount > 0
+                          ? 'bg-green-200 text-green-800'
+                          : 'bg-yellow-200 text-yellow-800'
+                      }`}>
+                        {student.attendanceCount > 0 ? '✅ 활동 중' : '⏳ 미활동'}
+                      </span>
+                    </div>
                     <p className="text-base text-gray-700 font-semibold">📧 {student.email}</p>
                     <p className="text-xs text-gray-500 mt-1">가입일: {new Date(student.createdAt).toLocaleDateString('ko-KR')}</p>
                   </div>
