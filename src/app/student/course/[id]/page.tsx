@@ -18,6 +18,7 @@ export default function CoursePage() {
   const [course, setCourse] = useState<Course | null>(null)
   const [attendances, setAttendances] = useState(0)
   const [lateCount, setLateCount] = useState(0)
+  const [materials, setMaterials] = useState<any[]>([])
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -34,6 +35,12 @@ export default function CoursePage() {
       const courses = JSON.parse(savedCourses)
       const found = courses.find((c: Course) => c.id === courseId)
       setCourse(found)
+    }
+
+    const materialsKey = `course_materials_${courseId}`
+    const savedMaterials = localStorage.getItem(materialsKey)
+    if (savedMaterials) {
+      setMaterials(JSON.parse(savedMaterials))
     }
 
     loadAttendanceData(userData.id)
@@ -271,56 +278,22 @@ export default function CoursePage() {
 
         <div className="bg-white rounded-lg shadow p-8 mt-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-6">📚 강의 자료</h3>
-          <div className="space-y-4">
-            <div className="border-l-4 border-blue-500 pl-4 py-2 hover:bg-blue-50 p-3 rounded transition cursor-pointer">
-              <p className="font-semibold text-gray-900">📄 강의 슬라이드</p>
-              <p className="text-sm text-gray-600">강의_슬라이드_1주차.pdf (2.5MB)</p>
-              <p className="text-xs text-gray-500 mt-1">📅 2026-06-24 업로드</p>
-            </div>
-
-            <div className="border-l-4 border-green-500 pl-4 py-2 hover:bg-green-50 p-3 rounded transition cursor-pointer">
-              <p className="font-semibold text-gray-900">📹 강의 영상</p>
-              <p className="text-sm text-gray-600">강의_영상_1주차.mp4 (45MB)</p>
-              <p className="text-xs text-gray-500 mt-1">⏱️ 1시간 30분</p>
-            </div>
-
-            <div className="border-l-4 border-purple-500 pl-4 py-2 hover:bg-purple-50 p-3 rounded transition cursor-pointer">
-              <p className="font-semibold text-gray-900">📋 강의 노트</p>
-              <p className="text-sm text-gray-600">강의_노트_정리.pdf (1.8MB)</p>
-              <p className="text-xs text-gray-500 mt-1">✍️ 학생 작성</p>
-            </div>
-
-            <div className="border-l-4 border-yellow-500 pl-4 py-2 hover:bg-yellow-50 p-3 rounded transition cursor-pointer">
-              <p className="font-semibold text-gray-900">🔗 참고 자료</p>
-              <p className="text-sm text-gray-600">외부 링크 및 추천 자료</p>
-              <p className="text-xs text-gray-500 mt-1">🌐 웹사이트</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-8 mt-8">
-          <h3 className="text-2xl font-bold text-gray-900 mb-6">📝 과제 및 시험</h3>
-          <div className="space-y-3">
-            <div className="bg-orange-50 border border-orange-200 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-gray-900">✏️ 과제 1: {course.name} 기초 이해</p>
-                  <p className="text-sm text-gray-600">제출 기한: 2026-07-01</p>
+          {materials.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">등록된 강의 자료가 없습니다</p>
+          ) : (
+            <div className="space-y-3">
+              {materials.map((material, idx) => (
+                <div
+                  key={material.id}
+                  className="border-l-4 border-blue-500 pl-4 py-2 hover:bg-blue-50 p-3 rounded transition cursor-pointer bg-gray-50"
+                >
+                  <p className="font-semibold text-gray-900">📄 {material.name}</p>
+                  <p className="text-sm text-gray-600">{material.size}</p>
+                  <p className="text-xs text-gray-500 mt-1">📅 {material.uploadedAt}</p>
                 </div>
-                <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">✅ 제출됨</span>
-              </div>
+              ))}
             </div>
-
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-gray-900">📚 중간고사</p>
-                  <p className="text-sm text-gray-600">예정 날짜: 2026-07-15</p>
-                </div>
-                <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">⏰ 예정 중</span>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </main>
     </div>
