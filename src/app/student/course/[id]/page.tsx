@@ -296,14 +296,24 @@ export default function CoursePage() {
             <p className="text-gray-500 text-center py-8">등록된 강의 자료가 없습니다</p>
           ) : (
             <div className="space-y-3">
-              {materials.map((material, idx) => (
+              {materials.map((material: any, idx: number) => (
                 <div
                   key={material.id}
-                  className="border-l-4 border-blue-500 pl-4 py-2 hover:bg-blue-50 p-3 rounded transition cursor-pointer bg-gray-50"
+                  onClick={() => {
+                    if (material.data) {
+                      const link = document.createElement('a')
+                      link.href = material.data
+                      link.download = material.name
+                      link.click()
+                      toast.success(`✅ ${material.name} 다운로드 시작`)
+                    }
+                  }}
+                  className="border-l-4 border-blue-500 pl-4 py-2 hover:bg-blue-50 p-3 rounded transition cursor-pointer bg-gray-50 hover:shadow-md"
                 >
                   <p className="font-semibold text-gray-900">📄 {material.name}</p>
                   <p className="text-sm text-gray-600">{material.size}</p>
                   <p className="text-xs text-gray-500 mt-1">📅 {material.uploadedAt}</p>
+                  <p className="text-xs text-blue-600 mt-2">💾 클릭해서 다운로드</p>
                 </div>
               ))}
             </div>

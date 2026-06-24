@@ -153,7 +153,7 @@ export default function CourseDetailPage() {
     }
   }
 
-  const handleAddMaterial = () => {
+  const handleAddMaterial = async () => {
     if (!selectedFile) {
       toast.error('파일을 선택하세요')
       return
@@ -163,20 +163,28 @@ export default function CourseDetailPage() {
 
     const fileSizeInMB = (selectedFile.size / (1024 * 1024)).toFixed(2)
 
-    const newMaterial: CourseMaterial = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: selectedFile.name,
-      size: `${fileSizeInMB}MB`,
-      uploadedAt: new Date().toLocaleDateString('ko-KR'),
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const fileData = e.target?.result as string
+
+      const newMaterial: any = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: selectedFile.name,
+        size: `${fileSizeInMB}MB`,
+        uploadedAt: new Date().toLocaleDateString('ko-KR'),
+        data: fileData,
+      }
+
+      const updated = [...materials, newMaterial]
+      const key = `course_materials_${course.id}`
+      localStorage.setItem(key, JSON.stringify(updated))
+      setMaterials(updated)
+      toast.success('✅ 강의 자료가 추가되었습니다')
+      setNewMaterialName('')
+      setSelectedFile(null)
     }
 
-    const updated = [...materials, newMaterial]
-    const key = `course_materials_${course.id}`
-    localStorage.setItem(key, JSON.stringify(updated))
-    setMaterials(updated)
-    toast.success('✅ 강의 자료가 추가되었습니다')
-    setNewMaterialName('')
-    setSelectedFile(null)
+    reader.readAsDataURL(selectedFile)
   }
 
   const handleDeleteMaterial = (id: string) => {
