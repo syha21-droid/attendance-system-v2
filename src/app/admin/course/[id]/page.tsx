@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { LogOut, ArrowLeft, Upload, Trash2 } from 'lucide-react'
+import { LogOut, ArrowLeft, Upload, Trash2, Download } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { supabase } from '@/lib/supabase'
+import * as XLSX from 'xlsx'
 import { Course } from '@/types'
 
 interface CourseMaterial {
@@ -216,6 +217,30 @@ export default function CourseDetailPage() {
     setIsEditingNotice(false)
   }
 
+  const handleDownloadStudentExcel = () => {
+    if (students.length === 0) {
+      toast.error('내보낼 학생 데이터가 없습니다')
+      return
+    }
+
+    const excelData = students.map((student) => ({
+      학생명: student.name,
+      이메일: student.email,
+      출석: `${student.attendanceCount}회`,
+      지각: `${student.lateCount}회`,
+      총출석: `${student.attendanceCount + student.lateCount}회`,
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(excelData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '수강생명단')
+    XLSX.writeFile(
+      wb,
+      `${course?.name}_수강생명단_${new Date().toLocaleDateString('ko-KR')}.xlsx`
+    )
+    toast.success('✅ 엑셀 파일이 다운로드되었습니다')
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('user')
     setUser(null)
@@ -405,7 +430,18 @@ export default function CourseDetailPage() {
           {/* 수강생 명단 */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow p-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">👥 수강생 명단</h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">👥 수강생 명단</h3>
+                {students.length > 0 && (
+                  <button
+                    onClick={handleDownloadStudentExcel}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition text-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    엑셀 다운로드
+                  </button>
+                )}
+              </div>
 
               {students.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">

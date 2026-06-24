@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { LogOut, Users, BookOpen, BarChart3 } from 'lucide-react'
+import { LogOut, Users, BookOpen, BarChart3, Download } from 'lucide-react'
 import { useStore } from '@/store/useStore'
+import * as XLSX from 'xlsx'
 import { Course } from '@/types'
 
 export default function AdminPage() {
@@ -73,6 +74,48 @@ export default function AdminPage() {
     toast.success('✅ 강의가 삭제되었습니다')
   }
 
+  const handleDownloadExcel = () => {
+    const attendanceData: any[] = []
+
+    courses.forEach((course) => {
+      attendanceData.push({
+        강의명: course.name,
+        강사: course.instructor,
+        날짜: new Date().toLocaleDateString('ko-KR'),
+      })
+
+      const allKeys = Object.keys(localStorage)
+      allKeys.forEach((key) => {
+        if (key.startsWith(`attendance_`) && key.endsWith(`_${course.id}`)) {
+          const data = JSON.parse(localStorage.getItem(key) || '[]')
+          const parts = key.split('_')
+          const userId = parts.slice(1, -1).join('_')
+
+          data.forEach((record: any) => {
+            attendanceData.push({
+              강의명: course.name,
+              학생ID: userId,
+              날짜: record.date,
+              시간: record.time,
+              상태: record.status === 'present' ? '출석' : '지각',
+            })
+          })
+        }
+      })
+    })
+
+    if (attendanceData.length === 0) {
+      toast.error('내보낼 출석 데이터가 없습니다')
+      return
+    }
+
+    const ws = XLSX.utils.json_to_sheet(attendanceData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '출석현황')
+    XLSX.writeFile(wb, `출석현황_${new Date().toLocaleDateString('ko-KR')}.xlsx`)
+    toast.success('✅ 엑셀 파일이 다운로드되었습니다')
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('user')
     setUser(null)
@@ -122,6 +165,17 @@ export default function AdminPage() {
             <p className="text-gray-600 text-sm">평균 출석률</p>
             <p className="text-3xl font-bold text-purple-600">0%</p>
           </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-8 mb-8">
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">📥 데이터 관리</h3>
+          <button
+            onClick={handleDownloadExcel}
+            className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg flex items-center gap-2 transition"
+          >
+            <Download className="w-5 h-5" />
+            출석 현황 엑셀 다운로드
+          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
