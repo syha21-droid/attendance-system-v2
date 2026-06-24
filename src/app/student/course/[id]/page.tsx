@@ -254,9 +254,9 @@ export default function CoursePage() {
 
     const [endHour, endMin] = currentClass.endTime.split(':').map(Number)
     const endMinutes = endHour * 60 + endMin
-    const exitAvailableMinutes = endMinutes - 5
 
-    return currentMinutes >= exitAvailableMinutes
+    // 강의 정확히 끝났을 때만 퇴장 가능
+    return currentMinutes >= endMinutes
   }
 
 
@@ -523,33 +523,6 @@ export default function CoursePage() {
     }
 
     const attendanceRecord = JSON.parse(attendingData)
-
-    // ⚠️ 강의 종료 1분 전에 하면 출석 취소
-    if (currentClass) {
-      const now = new Date()
-      const currentMinutes = now.getHours() * 60 + now.getMinutes()
-
-      const [endHour, endMin] = currentClass.endTime.split(':').map(Number)
-      const endMinutes = endHour * 60 + endMin
-      const lastMinute = endMinutes - 1
-
-      if (currentMinutes >= lastMinute) {
-        // 1분 이내에 퇴장 시도 → 출석 기록 취소
-        toast.error('❌ 너무 늦게 퇴장했습니다.\n출석 기록이 취소됩니다.')
-
-        // 세션 정리만 함 (기록 저장 안 함)
-        stopPeriodicConfirm()
-        sessionStorage.removeItem(`attending_${user.id}_${courseId}`)
-        setIsAttended(false)
-        setAttendanceStartTime(null)
-        setCodeVerified(false)
-        setExitCodeVerified(false)
-        setEnvironmentOk(false)
-        setFaceDetected(false)
-        return
-      }
-    }
-
     attendanceRecord.exitTime = exitTime
 
     // 최종 출석 기록 저장
@@ -1040,9 +1013,9 @@ export default function CoursePage() {
 
                     {canExit() ? (
                       <>
-                        <div className="bg-red-100 border-2 border-red-400 p-3 rounded-lg">
-                          <p className="text-red-700 font-bold text-base">⚠️ 중요 공지</p>
-                          <p className="text-sm text-red-700 mt-1">강의 종료 1분 이내에 퇴장하면<br/>출석 기록이 취소됩니다!</p>
+                        <div className="bg-green-100 border-2 border-green-400 p-4 rounded-lg text-center">
+                          <p className="text-3xl font-bold text-green-700 mb-2">🎉 강의 끝!</p>
+                          <p className="text-lg font-bold text-green-700">퇴장하세요!</p>
                         </div>
 
                         {!exitCodeVerified ? (
