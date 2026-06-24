@@ -592,11 +592,48 @@ export default function CoursePage() {
     toast.success(`🏥 공가 신청 완료!\n[${getCategoryLabel(absenceCategory!)}] ${absenceReason}`)
   }
 
-  const startPeriodicConfirm = () => {
-    // 5분(300초)마다 재확인
-    confirmIntervalRef.current = setInterval(() => {
+  const autoConfirmEnvironment = async () => {
+    // 5분마다 자동으로 강의실 환경 확인
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+
+        // 2초 후 자동으로 사진 촬영
+        setTimeout(() => {
+          if (canvasRef.current && videoRef.current) {
+            const ctx = canvasRef.current.getContext('2d')
+            canvasRef.current.width = videoRef.current.videoWidth
+            canvasRef.current.height = videoRef.current.videoHeight
+            ctx?.drawImage(videoRef.current, 0, 0)
+
+            // 자동 환경 분석
+            const result = analyzeEnvironment(canvasRef.current)
+
+            if (result) {
+              setNeedsReconfirm(false)
+              // 성공: 조용히 처리
+            } else {
+              setNeedsReconfirm(true)
+              // 실패: 재확인 필요 표시
+            }
+          }
+
+          // 카메라 종료
+          const tracks = (videoRef.current?.srcObject as MediaStream)?.getTracks()
+          tracks?.forEach((track) => track.stop())
+        }, 2000)
+      }
+    } catch (error) {
       setNeedsReconfirm(true)
-      toast.warning('🔍 강의 확인이 필요합니다!\n카메라로 재확인해주세요.')
+      // 카메라 접근 실패
+    }
+  }
+
+  const startPeriodicConfirm = () => {
+    // 5분(300초)마다 자동으로 강의실 환경 확인
+    confirmIntervalRef.current = setInterval(() => {
+      autoConfirmEnvironment()
     }, 5 * 60 * 1000)
   }
 
