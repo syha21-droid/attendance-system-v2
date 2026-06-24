@@ -157,14 +157,18 @@ export default function StudentPage() {
                 <select
                   value={selectedCourse}
                   onChange={(e) => setSelectedCourse(e.target.value)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white text-gray-900 font-medium"
                 >
                   <option value="">-- 강의를 선택하세요 --</option>
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.name} ({course.instructor})
-                    </option>
-                  ))}
+                  {courses && courses.length > 0 ? (
+                    courses.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.name} ({course.instructor})
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>등록된 강의가 없습니다</option>
+                  )}
                 </select>
                 <button
                   onClick={handleEnroll}
