@@ -30,6 +30,8 @@ export default function CoursePage() {
   const [selectedEpisode, setSelectedEpisode] = useState(1)
   const [isAttended, setIsAttended] = useState(false) // 입장 여부
   const [attendanceStartTime, setAttendanceStartTime] = useState<string | null>(null) // 입장 시간
+  const [codeInput, setCodeInput] = useState('') // 코드 입력값
+  const [codeVerified, setCodeVerified] = useState(false) // 코드 검증 여부
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -229,9 +231,49 @@ export default function CoursePage() {
   }
 
 
+  const verifyAttendanceCode = () => {
+    if (!codeInput.trim()) {
+      toast.error('코드를 입력하세요')
+      return
+    }
+
+    const codeKey = `course_code_${courseId}`
+    const savedCode = localStorage.getItem(codeKey)
+
+    if (!savedCode) {
+      toast.error('❌ 현재 활성 코드가 없습니다.\n관리자에게 문의하세요.')
+      return
+    }
+
+    const codeData = JSON.parse(savedCode)
+
+    // 코드 유효성 확인
+    if (new Date() > new Date(codeData.expiresAt)) {
+      toast.error('❌ 코드가 만료되었습니다.\n새 코드를 요청하세요.')
+      setCodeInput('')
+      return
+    }
+
+    // 코드 일치 확인
+    if (codeInput.trim() === codeData.code) {
+      setCodeVerified(true)
+      toast.success('✅ 코드 확인 완료!')
+      setCodeInput('')
+    } else {
+      toast.error('❌ 잘못된 코드입니다.')
+      setCodeInput('')
+    }
+  }
+
   const handleExit = () => {
     if (!user || !isAttended) {
       toast.error('입장하지 않았습니다')
+      return
+    }
+
+    // 코드 검증 필수
+    if (!codeVerified) {
+      toast.error('❌ 출석 확인 코드를 먼저 입력하세요!')
       return
     }
 
@@ -575,15 +617,45 @@ export default function CoursePage() {
                   <div className="space-y-3 bg-blue-100 border-2 border-blue-400 p-4 rounded-lg">
                     <p className="text-blue-900 font-bold text-lg">📚 강의 진행 중...</p>
                     <p className="text-sm text-blue-800">입장 시간: {attendanceStartTime}</p>
+
+                    {!codeVerified ? (
+                      <div className="bg-yellow-50 border-2 border-yellow-300 p-3 rounded-lg">
+                        <p className="text-yellow-800 font-bold text-base mb-2">🔐 출석 확인 코드 입력</p>
+                        <p className="text-sm text-yellow-700 mb-3">관리자가 공지한 코드를 입력하세요:</p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={codeInput}
+                            onChange={(e) => setCodeInput(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && verifyAttendanceCode()}
+                            placeholder="4자리 코드"
+                            className="flex-1 px-3 py-2 border-2 border-yellow-300 rounded-lg text-center text-2xl font-bold tracking-widest text-gray-900"
+                            maxLength={4}
+                          />
+                          <button
+                            onClick={verifyAttendanceCode}
+                            className="bg-yellow-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-yellow-700 transition"
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-green-100 border-2 border-green-400 p-3 rounded-lg">
+                        <p className="text-green-700 font-bold text-base">✅ 코드 확인 완료!</p>
+                      </div>
+                    )}
+
                     {canExit() ? (
                       <>
-                        <div className="bg-red-100 border-2 border-red-400 p-3 rounded-lg mb-2">
+                        <div className="bg-red-100 border-2 border-red-400 p-3 rounded-lg">
                           <p className="text-red-700 font-bold text-base">⚠️ 중요 공지</p>
                           <p className="text-sm text-red-700 mt-1">강의 종료 1분 이내에 퇴장하면<br/>출석 기록이 취소됩니다!</p>
                         </div>
                         <button
                           onClick={handleExit}
-                          className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-red-700 transition"
+                          disabled={!codeVerified}
+                          className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           🚪 퇴장
                         </button>
