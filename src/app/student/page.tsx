@@ -150,33 +150,36 @@ export default function StudentPage() {
 
           {showForm && (
             <div className="bg-blue-50 p-6 rounded-lg mb-6 border border-blue-200">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                강의 선택
+              <label className="block text-sm font-medium text-gray-700 mb-4">
+                📚 강의를 선택하세요
               </label>
-              <div className="flex gap-2">
-                <select
-                  value={selectedCourse}
-                  onChange={(e) => setSelectedCourse(e.target.value)}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white text-gray-900 font-medium"
-                >
-                  <option value="">-- 강의를 선택하세요 --</option>
-                  {courses && courses.length > 0 ? (
-                    courses.map((course) => (
-                      <option key={course.id} value={course.id}>
-                        {course.name} ({course.instructor})
-                      </option>
-                    ))
-                  ) : (
-                    <option disabled>등록된 강의가 없습니다</option>
-                  )}
-                </select>
-                <button
-                  onClick={handleEnroll}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
-                >
-                  등록
-                </button>
-              </div>
+              {courses && courses.length > 0 ? (
+                <div className="space-y-3 mb-4">
+                  {courses.map((course) => (
+                    <button
+                      key={course.id}
+                      onClick={() => setSelectedCourse(course.id)}
+                      className={`w-full p-4 rounded-lg border-2 transition text-left ${
+                        selectedCourse === course.id
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'bg-white border-gray-300 text-gray-900 hover:bg-blue-50'
+                      }`}
+                    >
+                      <p className="font-semibold">{course.name}</p>
+                      <p className="text-sm">👨‍🏫 {course.instructor}</p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-4">등록된 강의가 없습니다</p>
+              )}
+              <button
+                onClick={handleEnroll}
+                disabled={!selectedCourse}
+                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                ✅ 강의 등록
+              </button>
             </div>
           )}
 
