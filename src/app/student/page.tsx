@@ -15,6 +15,8 @@ export default function StudentPage() {
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [totalAttendance, setTotalAttendance] = useState(0)
+  const [attendanceRate, setAttendanceRate] = useState(0)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -49,6 +51,25 @@ export default function StudentPage() {
     if (saved) {
       setEnrolledCourses(JSON.parse(saved))
     }
+
+    // 출석 통계 집계
+    let present = 0
+    let late = 0
+    let absent = 0
+    let excused = 0
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith(`attendance_${userData.id}_`)) {
+        const data = JSON.parse(localStorage.getItem(key) || '[]')
+        present += data.filter((r: any) => r.status === 'present').length
+        late += data.filter((r: any) => r.status === 'late').length
+        absent += data.filter((r: any) => r.status === 'absent').length
+        excused += data.filter((r: any) => r.status === 'excused').length
+      }
+    })
+    setTotalAttendance(present + late)
+    // 출석률 = (출석 + 지각) / (출석 + 지각 + 결석), 공가는 제외
+    const denom = present + late + absent
+    setAttendanceRate(denom > 0 ? Math.round(((present + late) / denom) * 100) : 0)
   }, [router, setUser])
 
   const handleEnroll = () => {
@@ -126,11 +147,11 @@ export default function StudentPage() {
           </div>
           <div className="bg-green-50 rounded-lg p-6 border border-green-200">
             <p className="text-gray-600 text-sm">총 출석</p>
-            <p className="text-3xl font-bold text-green-600">0회</p>
+            <p className="text-3xl font-bold text-green-600">{totalAttendance}회</p>
           </div>
           <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
             <p className="text-gray-600 text-sm">평균 출석률</p>
-            <p className="text-3xl font-bold text-purple-600">0%</p>
+            <p className="text-3xl font-bold text-purple-600">{attendanceRate}%</p>
           </div>
         </div>
 

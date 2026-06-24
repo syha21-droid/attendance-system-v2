@@ -7,6 +7,7 @@ import { LogOut, Clock, AlertCircle, Camera, X } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { supabase } from '@/lib/supabase'
 import { Course } from '@/types'
+import { syncTrustedTime, getTrustedNow, isTimeTrusted, getClockSkewSeconds } from '@/lib/trustedTime'
 
 export default function CoursePage() {
   const router = useRouter()
@@ -44,6 +45,8 @@ export default function CoursePage() {
   const [watchingMinutes, setWatchingMinutes] = useState(0) // 강의 시청/참여 시간
   const [lastConfirmTime, setLastConfirmTime] = useState<Date | null>(null) // 마지막 확인 시간
   const [needsReconfirm, setNeedsReconfirm] = useState(false) // 재확인 필요
+  const [timeTrusted, setTimeTrusted] = useState(false) // 서버 시간 동기화 여부
+  const [clockTampered, setClockTampered] = useState(false) // 기기 시계 조작 감지
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const confirmIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -116,6 +119,28 @@ export default function CoursePage() {
 
     loadAttendanceData(userData.id)
   }, [courseId, router, setUser])
+
+  // 서버 시간 동기화 (기기 시계 조작 방지)
+  useEffect(() => {
+    let active = true
+
+    const doSync = async () => {
+      const ok = await syncTrustedTime()
+      if (!active) return
+      setTimeTrusted(ok)
+      if (ok) {
+        // 로컬 시계와 서버 시계가 2분 이상 벌어지면 조작으로 간주
+        setClockTampered(Math.abs(getClockSkewSeconds()) > 120)
+      }
+    }
+
+    doSync()
+    const interval = setInterval(doSync, 60_000) // 1분마다 재동기화
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
+  }, [])
 
   const updateCurrentClass = () => {
     if (!schedule || schedule.length === 0) {
@@ -249,7 +274,11 @@ export default function CoursePage() {
   const canExit = (): boolean => {
     if (!currentClass || !isAttended) return false
 
-    const now = new Date()
+    // 기기 시계 조작이 감지되면 퇴장 불가
+    if (clockTampered) return false
+
+    // 신뢰 시간(서버 보정) 기준으로 판정 → 기기 시계를 돌려도 소용없음
+    const now = getTrustedNow()
     const currentMinutes = now.getHours() * 60 + now.getMinutes()
 
     const [endHour, endMin] = currentClass.endTime.split(':').map(Number)
@@ -489,7 +518,7 @@ export default function CoursePage() {
     }
   }
 
-  const handleExit = () => {
+  const handleExit = async () => {
     if (!user || !isAttended) {
       toast.error('입장하지 않았습니다')
       return
@@ -507,12 +536,20 @@ export default function CoursePage() {
       return
     }
 
-    if (!canExit()) {
-      toast.error('❌ 아직 퇴장할 수 없습니다.')
+    // 퇴장 직전 서버 시간 재동기화 후 최종 검증 (기기 시계 조작 방지)
+    await syncTrustedTime(true)
+    if (Math.abs(getClockSkewSeconds()) > 120) {
+      setClockTampered(true)
+      toast.error('🚨 기기 시계가 실제 시간과 다릅니다.\n시계를 정확히 맞춘 후 다시 시도하세요.')
       return
     }
 
-    const now = new Date()
+    if (!canExit()) {
+      toast.error('❌ 아직 퇴장할 수 없습니다.\n수업 종료 시간이 지나야 퇴장할 수 있습니다.')
+      return
+    }
+
+    const now = getTrustedNow()
     const exitTime = now.toLocaleTimeString('ko-KR')
 
     // 세션에서 입장 정보 가져오기
@@ -961,6 +998,20 @@ export default function CoursePage() {
                     <p className="text-blue-900 font-bold text-lg">📚 강의 진행 중...</p>
                     <p className="text-sm text-blue-800">입장 시간: {attendanceStartTime}</p>
 
+                    {/* 시계 조작 경고 */}
+                    {clockTampered && (
+                      <div className="bg-red-100 border-2 border-red-500 p-3 rounded-lg">
+                        <p className="text-red-800 font-bold text-sm">
+                          🚨 기기 시계가 실제 시간과 다릅니다!
+                        </p>
+                        <p className="text-red-700 text-xs mt-1">
+                          시계를 정확한 시간으로 맞춰야 퇴장할 수 있습니다. (서버 시간 기준 검증)
+                        </p>
+                      </div>
+                    )}
+                    {!timeTrusted && !clockTampered && (
+                      <p className="text-xs text-blue-700">⏱️ 서버 시간 동기화 중...</p>
+                    )}
 
                     {!codeVerified ? (
                       <div className="bg-yellow-50 border-2 border-yellow-300 p-3 rounded-lg">
