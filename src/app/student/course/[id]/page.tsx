@@ -39,6 +39,7 @@ export default function CoursePage() {
   const [brightness, setBrightness] = useState<number | null>(null) // 밝기 값 (사진 대신)
   const [exitCodeInput, setExitCodeInput] = useState('') // 퇴장 코드 입력
   const [exitCodeVerified, setExitCodeVerified] = useState(false) // 퇴장 코드 검증
+  const [isOnline, setIsOnline] = useState<boolean | null>(null) // 온라인/오프라인 선택
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -268,28 +269,81 @@ export default function CoursePage() {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
     const data = imageData.data
 
+    // 1. 밝기 분석
     let brightnessValue = 0
+    let redSum = 0, greenSum = 0, blueSum = 0
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i]
       const g = data[i + 1]
       const b = data[i + 2]
       brightnessValue += (r + g + b) / 3
+      redSum += r
+      greenSum += g
+      blueSum += b
     }
-    brightnessValue = brightnessValue / (data.length / 4)
+    const pixelCount = data.length / 4
+    brightnessValue = brightnessValue / pixelCount
+    const avgRed = redSum / pixelCount
+    const avgGreen = greenSum / pixelCount
+    const avgBlue = blueSum / pixelCount
 
-    // 강의실 환경: 100~220 (어두운 실내)
-    const isClassroom = brightnessValue > 80 && brightnessValue < 230
+    // 온라인 vs 오프라인 검증
+    if (isOnline) {
+      // 온라인: 강의 화면 검증 (모니터/밝은 화면)
+      // 강의 화면은 밝아야 함 (모니터 때문)
+      const isBrightnesOk = brightnessValue > 120
 
-    if (!isClassroom) {
-      toast.error(`❌ 강의실 환경이 아닙니다.\n현재 밝기: ${Math.round(brightnessValue)}`)
-      return false
+      // 강의 화면은 텍스트나 슬라이드가 있으므로 색상 변화가 많음
+      const colorVariance = Math.abs(avgRed - avgGreen) + Math.abs(avgGreen - avgBlue) + Math.abs(avgRed - avgBlue)
+      const hasContent = colorVariance > 5 // 강의 콘텐츠가 있음
+
+      if (!isBrightnesOk || !hasContent) {
+        const reason = !isBrightnesOk
+          ? `강의 화면이 어둡습니다 (밝기: ${Math.round(brightnessValue)})`
+          : '강의 화면이 제대로 보이지 않습니다'
+        toast.error(`❌ 강의 화면이 감지되지 않습니다.\n${reason}`)
+        return false
+      }
+
+      setBrightness(Math.round(brightnessValue))
+      setEnvironmentOk(true)
+      setFaceDetected(true)
+      toast.success('✅ 강의 화면 확인됨!')
+      return true
+    } else {
+      // 오프라인: 강의실 환경 검증
+      const isBrightnesOk = brightnessValue > 80 && brightnessValue < 230
+
+      // 강의실은 보통 회색, 파란색, 갈색이 섞여있음
+      const colorVariance = Math.abs(avgRed - avgGreen) + Math.abs(avgGreen - avgBlue) + Math.abs(avgRed - avgBlue)
+      const hasNaturalColors = colorVariance > 10 // 다양한 색상이 섞여있음
+
+      // 엣지 감지 (직선이 많은 환경)
+      let edgeCount = 0
+      for (let i = 0; i < data.length - 8; i += 4) {
+        const diff = Math.abs(data[i] - data[i + 4]) + Math.abs(data[i + 1] - data[i + 5]) + Math.abs(data[i + 2] - data[i + 6])
+        if (diff > 30) edgeCount++
+      }
+      const hasStructure = edgeCount > (pixelCount * 0.05)
+
+      const isClassroom = isBrightnesOk && hasNaturalColors && hasStructure
+
+      if (!isClassroom) {
+        const reason = !isBrightnesOk
+          ? `밝기가 ${Math.round(brightnessValue)}입니다`
+          : !hasNaturalColors
+          ? '색상 분포가 부자연스럽습니다'
+          : '강의실 구조가 감지되지 않습니다'
+        toast.error(`❌ 강의실 환경이 아닙니다.\n${reason}`)
+        return false
+      }
+
+      setBrightness(Math.round(brightnessValue))
+      setEnvironmentOk(true)
+      setFaceDetected(true)
+      toast.success('✅ 강의실 환경 확인됨!')
+      return true
     }
-
-    // 개인정보 보호: 사진은 저장하지 않고, 밝기값과 확인 상태만 기록
-    setBrightness(Math.round(brightnessValue))
-    setEnvironmentOk(true)
-    setFaceDetected(true)
-    return true
   }
 
   const capturePhotoForAttendance = () => {
@@ -443,6 +497,11 @@ export default function CoursePage() {
         sessionStorage.removeItem(`attending_${user.id}_${courseId}`)
         setIsAttended(false)
         setAttendanceStartTime(null)
+        setIsOnline(null)
+        setCodeVerified(false)
+        setExitCodeVerified(false)
+        setEnvironmentOk(false)
+        setFaceDetected(false)
         return
       }
     }
@@ -461,6 +520,13 @@ export default function CoursePage() {
     // 상태 초기화
     setIsAttended(false)
     setAttendanceStartTime(null)
+    setIsOnline(null)
+    setCodeVerified(false)
+    setExitCodeVerified(false)
+    setEnvironmentOk(false)
+    setFaceDetected(false)
+    setCodeInput('')
+    setExitCodeInput('')
     loadAttendanceData(user.id)
 
     toast.success(`✅ 퇴장 완료!\n${attendanceRecord.class} (${attendanceRecord.enterTime} ~ ${exitTime})`)
@@ -682,8 +748,14 @@ export default function CoursePage() {
           <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900">📷 얼굴 인식</h3>
-                <button onClick={stopCamera} className="text-gray-500 hover:text-gray-700">
+                <h3 className="text-lg font-bold text-gray-900">📷 {isOnline ? '강의 화면' : '얼굴 인식'}</h3>
+                <button
+                  onClick={() => {
+                    stopCamera()
+                    setIsOnline(null)
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -700,7 +772,7 @@ export default function CoursePage() {
 
               <div className="space-y-2 mb-4">
                 <p className="text-sm text-gray-600">
-                  ✅ 강의실 환경: <span className={environmentOk ? 'text-green-600 font-bold' : 'text-gray-500'}>확인 중...</span>
+                  ✅ {isOnline ? '강의 화면' : '강의실 환경'}: <span className={environmentOk ? 'text-green-600 font-bold' : 'text-gray-500'}>확인 중...</span>
                 </p>
               </div>
 
@@ -723,23 +795,48 @@ export default function CoursePage() {
               <h3 className="text-xl font-bold text-gray-900">출석 등록</h3>
             </div>
 
-            {/* 카메라 확인 섹션 */}
-            <div className="mb-4">
-              {!environmentOk ? (
-                <button
-                  onClick={startCamera}
-                  className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition flex items-center justify-center gap-2"
-                >
-                  <Camera className="w-5 h-5" />
-                  📷 얼굴 인식 (환경 확인)
-                </button>
-              ) : (
-                <div className="bg-green-100 border-2 border-green-400 p-3 rounded-lg text-center">
-                  <p className="text-green-700 font-bold">✅ 얼굴 인식 완료!</p>
-                  <p className="text-sm text-green-600">강의실 환경 확인됨 (밝기: {brightness})</p>
+            {/* 온라인/오프라인 선택 */}
+            {isOnline === null && (
+              <div className="mb-4 space-y-2">
+                <p className="text-sm font-bold text-gray-700 mb-2">📍 학습 방식 선택:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setIsOnline(false)}
+                    className="py-3 px-4 rounded-lg font-bold text-sm transition bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:shadow-lg"
+                  >
+                    🏢 강의실
+                  </button>
+                  <button
+                    onClick={() => setIsOnline(true)}
+                    className="py-3 px-4 rounded-lg font-bold text-sm transition bg-gradient-to-r from-cyan-400 to-cyan-500 text-white hover:shadow-lg"
+                  >
+                    💻 온라인
+                  </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* 카메라 확인 섹션 */}
+            {isOnline !== null && (
+              <div className="mb-4">
+                {!environmentOk ? (
+                  <button
+                    onClick={startCamera}
+                    className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition flex items-center justify-center gap-2"
+                  >
+                    <Camera className="w-5 h-5" />
+                    📷 {isOnline ? '강의 화면' : '얼굴 인식'} 확인
+                  </button>
+                ) : (
+                  <div className="bg-green-100 border-2 border-green-400 p-3 rounded-lg text-center">
+                    <p className="text-green-700 font-bold">✅ 확인 완료!</p>
+                    <p className="text-sm text-green-600">
+                      {isOnline ? '강의 화면이 감지됨' : '강의실 환경 확인됨'} (밝기: {brightness})
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
             {currentClass ? (
               <>
                 <p className="text-gray-600 mb-4">현재 시간: {currentClass.name}</p>
