@@ -301,10 +301,6 @@ export default function AdminPage() {
               <p className="font-semibold text-yellow-900">⏰ 지각 관리</p>
               <p className="text-sm text-yellow-700">지각 학생을 관리합니다</p>
             </button>
-            <button onClick={() => router.push('/admin/dropout')} className="p-4 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition text-left cursor-pointer">
-              <p className="font-semibold text-red-900">🚫 중간이탈 관리</p>
-              <p className="text-sm text-red-700">중간이탈 학생을 관리합니다</p>
-            </button>
           </div>
         </div>
       </main>

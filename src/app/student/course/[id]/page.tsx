@@ -608,21 +608,6 @@ export default function CoursePage() {
     toast.success(`🏥 공가 신청 완료!\n[${getCategoryLabel(absenceCategory!)}] ${absenceReason}`)
   }
 
-  const handleDropout = () => {
-    if (!window.confirm('이 강의를 중단하시겠습니까?')) return
-
-    if (user) {
-      const enrolled = localStorage.getItem(`enrolled_${user.id}`)
-      if (enrolled) {
-        const courses = JSON.parse(enrolled).filter((c: Course) => c.id !== courseId)
-        localStorage.setItem(`enrolled_${user.id}`, JSON.stringify(courses))
-      }
-    }
-
-    toast.success('✅ 강의 중단이 접수되었습니다')
-    setTimeout(() => router.push('/student'), 1000)
-  }
-
   const handleLogout = () => {
     localStorage.removeItem('user')
     setUser(null)
@@ -1034,20 +1019,6 @@ export default function CoursePage() {
             ) : (
               <p className="text-gray-600">현재 수강 시간이 아닙니다</p>
             )}
-          </div>
-
-          <div className="bg-red-50 rounded-lg p-6 border border-red-200">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertCircle className="w-6 h-6 text-red-600" />
-              <h3 className="text-xl font-bold text-gray-900">강의 중단</h3>
-            </div>
-            <p className="text-gray-600 mb-4">강의를 중단합니다</p>
-            <button
-              onClick={handleDropout}
-              className="w-full bg-red-600 text-white py-3 rounded-lg font-medium hover:bg-red-700"
-            >
-              🚫 강의 중단
-            </button>
           </div>
         </div>
 
