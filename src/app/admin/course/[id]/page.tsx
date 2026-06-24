@@ -36,6 +36,10 @@ export default function CourseDetailPage() {
   const [newMaterialName, setNewMaterialName] = useState('')
   const [loading, setLoading] = useState(true)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [instructorName, setInstructorName] = useState('')
+  const [isEditingInstructor, setIsEditingInstructor] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [isEditingNotice, setIsEditingNotice] = useState(false)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -58,8 +62,15 @@ export default function CourseDetailPage() {
       const found = courses.find((c: Course) => c.id === courseId)
       if (found) {
         setCourse(found)
+        setInstructorName(found.instructor)
         loadMaterials(found.id)
         loadStudents(found.id)
+
+        const noticeKey = `course_notice_${found.id}`
+        const savedNotice = localStorage.getItem(noticeKey)
+        if (savedNotice) {
+          setNotice(savedNotice)
+        }
       }
     }
     setLoading(false)
@@ -177,6 +188,34 @@ export default function CourseDetailPage() {
     toast.success('✅ 강의 자료가 삭제되었습니다')
   }
 
+  const handleSaveInstructor = () => {
+    if (!course || !instructorName.trim()) {
+      toast.error('강사명을 입력하세요')
+      return
+    }
+
+    const savedCourses = localStorage.getItem('courses')
+    if (savedCourses) {
+      const courses = JSON.parse(savedCourses)
+      const updated = courses.map((c: Course) =>
+        c.id === course.id ? { ...c, instructor: instructorName } : c
+      )
+      localStorage.setItem('courses', JSON.stringify(updated))
+      setCourse({ ...course, instructor: instructorName })
+      toast.success('✅ 강사명이 저장되었습니다')
+      setIsEditingInstructor(false)
+    }
+  }
+
+  const handleSaveNotice = () => {
+    if (!course) return
+
+    const noticeKey = `course_notice_${course.id}`
+    localStorage.setItem(noticeKey, notice)
+    toast.success('✅ 공지사항이 저장되었습니다')
+    setIsEditingNotice(false)
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('user')
     setUser(null)
@@ -212,11 +251,74 @@ export default function CourseDetailPage() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* 강의 정보 */}
         <div className="bg-white rounded-lg shadow p-8 mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">{course.name}</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-6">{course.name}</h2>
+
+          {/* 공지사항 */}
+          <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-lg mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-semibold text-blue-900">📢 공지사항</p>
+              <button
+                onClick={() => setIsEditingNotice(!isEditingNotice)}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                {isEditingNotice ? '취소' : '편집'}
+              </button>
+            </div>
+            {isEditingNotice ? (
+              <div className="space-y-2">
+                <textarea
+                  value={notice}
+                  onChange={(e) => setNotice(e.target.value)}
+                  placeholder="공지사항을 입력하세요"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                />
+                <button
+                  onClick={handleSaveNotice}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg"
+                >
+                  저장
+                </button>
+              </div>
+            ) : (
+              <p className="text-gray-700">{notice || '공지사항이 없습니다'}</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
               <p className="text-sm text-gray-600">강사</p>
-              <p className="text-lg font-semibold text-gray-900">{course.instructor}</p>
+              {isEditingInstructor ? (
+                <div className="space-y-2 mt-2">
+                  <input
+                    type="text"
+                    value={instructorName}
+                    onChange={(e) => setInstructorName(e.target.value)}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                  />
+                  <div className="flex gap-1">
+                    <button
+                      onClick={handleSaveInstructor}
+                      className="flex-1 bg-green-500 text-white py-1 rounded text-xs font-medium"
+                    >
+                      저장
+                    </button>
+                    <button
+                      onClick={() => setIsEditingInstructor(false)}
+                      className="flex-1 bg-gray-400 text-white py-1 rounded text-xs font-medium"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p
+                  onClick={() => setIsEditingInstructor(true)}
+                  className="text-lg font-semibold text-gray-900 cursor-pointer hover:underline"
+                >
+                  {instructorName}
+                </p>
+              )}
             </div>
             <div className="bg-green-50 p-4 rounded-lg">
               <p className="text-sm text-gray-600">수강생</p>

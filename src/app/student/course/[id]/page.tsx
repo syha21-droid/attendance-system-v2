@@ -19,6 +19,7 @@ export default function CoursePage() {
   const [attendances, setAttendances] = useState(0)
   const [lateCount, setLateCount] = useState(0)
   const [materials, setMaterials] = useState<any[]>([])
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -41,6 +42,12 @@ export default function CoursePage() {
     const savedMaterials = localStorage.getItem(materialsKey)
     if (savedMaterials) {
       setMaterials(JSON.parse(savedMaterials))
+    }
+
+    const noticeKey = `course_notice_${courseId}`
+    const savedNotice = localStorage.getItem(noticeKey)
+    if (savedNotice) {
+      setNotice(savedNotice)
     }
 
     loadAttendanceData(userData.id)
@@ -201,6 +208,13 @@ export default function CoursePage() {
           <h2 className="text-3xl font-bold text-gray-900 mb-2">{course.name}</h2>
           <p className="text-gray-600">👨‍🏫 강사: {course.instructor}</p>
         </div>
+
+        {notice && (
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 mb-8">
+            <p className="font-semibold text-blue-900 mb-2">📢 공지사항</p>
+            <p className="text-gray-700 whitespace-pre-wrap">{notice}</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
