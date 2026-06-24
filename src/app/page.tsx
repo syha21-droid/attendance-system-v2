@@ -48,22 +48,6 @@ export default function Home() {
             회원가입
           </Link>
         </div>
-
-        <div className="mt-8 pt-8 border-t">
-          <p className="text-gray-600 text-sm mb-3">테스트 계정:</p>
-          <div className="bg-gray-50 p-3 rounded text-xs space-y-2">
-            <div>
-              <p className="font-semibold">학생</p>
-              <p>이메일: student@test.com</p>
-              <p>비밀번호: 123456</p>
-            </div>
-            <div className="pt-2 border-t">
-              <p className="font-semibold">관리자</p>
-              <p>이메일: admin@test.com</p>
-              <p>비밀번호: 123456</p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
