@@ -22,6 +22,8 @@ interface StudentAttendance {
   email: string
   attendanceCount: number
   lateCount: number
+  absentCount: number
+  excusedCount: number
 }
 
 export default function CourseDetailPage() {
@@ -41,6 +43,11 @@ export default function CourseDetailPage() {
   const [isEditingInstructor, setIsEditingInstructor] = useState(false)
   const [notice, setNotice] = useState('')
   const [isEditingNotice, setIsEditingNotice] = useState(false)
+  const [schedule, setSchedule] = useState<any[]>([])
+  const [lateThreshold, setLateThreshold] = useState(10)
+  const [absentThreshold, setAbsentThreshold] = useState(30)
+  const [isEditingSchedule, setIsEditingSchedule] = useState(false)
+  const [selectedEpisode, setSelectedEpisode] = useState(1)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -72,10 +79,50 @@ export default function CourseDetailPage() {
         if (savedNotice) {
           setNotice(savedNotice)
         }
+
+        const scheduleKey = found.courseType === 'episode'
+          ? `course_schedule_${found.id}_episode_1`
+          : `course_schedule_${found.id}`
+        const savedSchedule = localStorage.getItem(scheduleKey)
+        if (savedSchedule) {
+          const data = JSON.parse(savedSchedule)
+          setSchedule(data.classes || [])
+          setLateThreshold(data.lateThreshold || 10)
+          setAbsentThreshold(data.absentThreshold || 30)
+        } else {
+          setSchedule([
+            { number: 1, name: '1교시', startTime: '09:00', endTime: '10:00' },
+            { number: 2, name: '2교시', startTime: '10:00', endTime: '11:00' },
+            { number: 3, name: '3교시', startTime: '11:00', endTime: '12:00' },
+          ])
+        }
       }
     }
     setLoading(false)
   }, [courseId, router, setUser])
+
+  // 회차 변경 시 시간표 다시 로드
+  useEffect(() => {
+    if (!course) return
+
+    const scheduleKey = course.courseType === 'episode'
+      ? `course_schedule_${course.id}_episode_${selectedEpisode}`
+      : `course_schedule_${course.id}`
+
+    const savedSchedule = localStorage.getItem(scheduleKey)
+    if (savedSchedule) {
+      const data = JSON.parse(savedSchedule)
+      setSchedule(data.classes || [])
+      setLateThreshold(data.lateThreshold || 10)
+      setAbsentThreshold(data.absentThreshold || 30)
+    } else {
+      setSchedule([
+        { number: 1, name: '1교시', startTime: '09:00', endTime: '10:00' },
+        { number: 2, name: '2교시', startTime: '10:00', endTime: '11:00' },
+        { number: 3, name: '3교시', startTime: '11:00', endTime: '12:00' },
+      ])
+    }
+  }, [selectedEpisode, course])
 
   const loadMaterials = (cId: string) => {
     const key = `course_materials_${cId}`
@@ -99,6 +146,8 @@ export default function CourseDetailPage() {
               const data = JSON.parse(localStorage.getItem(key) || '[]')
               const attendanceCount = data.filter((r: any) => r.status === 'present').length
               const lateCount = data.filter((r: any) => r.status === 'late').length
+              const absentCount = data.filter((r: any) => r.status === 'absent').length
+              const excusedCount = data.filter((r: any) => r.status === 'excused').length
 
               studentsMap.set(userId, {
                 id: userId,
@@ -106,6 +155,8 @@ export default function CourseDetailPage() {
                 email: `student_${userId.substring(0, 8)}@example.com`,
                 attendanceCount,
                 lateCount,
+                absentCount,
+                excusedCount,
               })
             }
           }
@@ -132,14 +183,22 @@ export default function CourseDetailPage() {
             const lateCount = attendanceData?.filter(
               (a: any) => a.status === 'late'
             ).length || 0
+            const absentCount = attendanceData?.filter(
+              (a: any) => a.status === 'absent'
+            ).length || 0
+            const excusedCount = attendanceData?.filter(
+              (a: any) => a.status === 'excused'
+            ).length || 0
 
-            if (attendanceCount + lateCount > 0) {
+            if (attendanceCount + lateCount + absentCount + excusedCount > 0) {
               studentsMap.set(user.id, {
                 id: user.id,
                 name: user.name,
                 email: user.email,
                 attendanceCount,
                 lateCount,
+                absentCount,
+                excusedCount,
               })
             }
           }
@@ -223,6 +282,45 @@ export default function CourseDetailPage() {
     localStorage.setItem(noticeKey, notice)
     toast.success('✅ 공지사항이 저장되었습니다')
     setIsEditingNotice(false)
+  }
+
+  const handleSaveSchedule = () => {
+    if (!course || schedule.length === 0) {
+      toast.error('시간표를 입력하세요')
+      return
+    }
+
+    const scheduleKey = course.courseType === 'episode'
+      ? `course_schedule_${course.id}_episode_${selectedEpisode}`
+      : `course_schedule_${course.id}`
+
+    localStorage.setItem(
+      scheduleKey,
+      JSON.stringify({
+        classes: schedule,
+        lateThreshold,
+        absentThreshold,
+      })
+    )
+    const episodeText = course.courseType === 'episode' ? ` - ${selectedEpisode}회차` : ''
+    toast.success(`✅ 시간표가 저장되었습니다${episodeText}`)
+    setIsEditingSchedule(false)
+  }
+
+  const handleAddTimeSlot = () => {
+    const newSlot = {
+      number: schedule.length + 1,
+      name: `${schedule.length + 1}교시`,
+      startTime: '09:00',
+      endTime: '10:00',
+    }
+    setSchedule([...schedule, newSlot])
+  }
+
+  const handleUpdateTimeSlot = (index: number, field: string, value: string) => {
+    const updated = [...schedule]
+    updated[index] = { ...updated[index], [field]: value }
+    setSchedule(updated)
   }
 
   const handleDownloadStudentExcel = () => {
@@ -464,6 +562,8 @@ export default function CourseDetailPage() {
                         <th className="text-left py-3 px-4 font-semibold text-gray-900">이메일</th>
                         <th className="text-center py-3 px-4 font-semibold text-gray-900">✅ 출석</th>
                         <th className="text-center py-3 px-4 font-semibold text-gray-900">⏰ 지각</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-900">❌ 결석</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-900">🏥 공가</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -486,6 +586,16 @@ export default function CourseDetailPage() {
                               {student.lateCount}회
                             </span>
                           </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
+                              {student.absentCount}회
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                              {student.excusedCount}회
+                            </span>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -494,6 +604,172 @@ export default function CourseDetailPage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* 시간표 관리 */}
+        <div className="bg-white rounded-lg shadow p-8 mt-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-2xl font-bold text-gray-900">⏰ 시간표 관리</h3>
+            {!isEditingSchedule && (
+              <button
+                onClick={() => setIsEditingSchedule(true)}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                편집
+              </button>
+            )}
+          </div>
+
+          {course?.courseType === 'episode' && (
+            <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4 mb-6">
+              <label className="block text-sm font-semibold text-indigo-900 mb-2">
+                📚 회차 선택
+              </label>
+              <select
+                value={selectedEpisode}
+                onChange={(e) => setSelectedEpisode(Number(e.target.value))}
+                disabled={isEditingSchedule}
+                className="w-full px-4 py-2 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-medium disabled:opacity-50"
+              >
+                {Array.from({ length: course.episodeCount || 1 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {i + 1}회차
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-indigo-700 mt-2">
+                {selectedEpisode}회차의 시간표를 관리합니다
+              </p>
+            </div>
+          )}
+
+          {isEditingSchedule ? (
+            <div className="space-y-4">
+              {/* 시간표 설정 */}
+              <div className="space-y-4 mb-6">
+                {schedule.map((timeSlot: any, index: number) => (
+                  <div key={index} className="flex gap-4 items-end bg-gray-50 p-4 rounded-lg">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        시간대 이름
+                      </label>
+                      <input
+                        type="text"
+                        value={timeSlot.name}
+                        onChange={(e) => handleUpdateTimeSlot(index, 'name', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        placeholder="예: 1교시"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        시작 시간
+                      </label>
+                      <input
+                        type="time"
+                        value={timeSlot.startTime}
+                        onChange={(e) => handleUpdateTimeSlot(index, 'startTime', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        종료 시간
+                      </label>
+                      <input
+                        type="time"
+                        value={timeSlot.endTime}
+                        onChange={(e) => handleUpdateTimeSlot(index, 'endTime', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 임계값 설정 */}
+              <div className="grid grid-cols-2 gap-4 mb-6 bg-gray-50 p-4 rounded-lg">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    지각 임계값 (분)
+                  </label>
+                  <input
+                    type="number"
+                    value={lateThreshold}
+                    onChange={(e) => setLateThreshold(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    min="1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    수업 시작 후 {lateThreshold}분 이내: 출석, 초과: 지각
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    결석 임계값 (분)
+                  </label>
+                  <input
+                    type="number"
+                    value={absentThreshold}
+                    onChange={(e) => setAbsentThreshold(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    min="1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    지각 {absentThreshold}분 이상: 결석
+                  </p>
+                </div>
+              </div>
+
+              {/* 버튼들 */}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAddTimeSlot}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg"
+                >
+                  + 시간대 추가
+                </button>
+                <button
+                  onClick={handleSaveSchedule}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg"
+                >
+                  저장
+                </button>
+                <button
+                  onClick={() => setIsEditingSchedule(false)}
+                  className="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 rounded-lg"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {schedule.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">설정된 시간표가 없습니다</p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {schedule.map((timeSlot: any) => (
+                      <div key={timeSlot.number} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+                        <div>
+                          <p className="font-semibold text-gray-900">{timeSlot.name}</p>
+                          <p className="text-sm text-gray-600">
+                            {timeSlot.startTime} ~ {timeSlot.endTime}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mt-4">
+                    <p className="text-sm font-medium text-blue-900">
+                      ⏱️ 지각 임계값: {lateThreshold}분 | 결석 임계값: {absentThreshold}분
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </main>
     </div>

@@ -16,6 +16,8 @@ export default function AdminPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [newCourseName, setNewCourseName] = useState('')
   const [newCourseInstructor, setNewCourseInstructor] = useState('')
+  const [newCourseType, setNewCourseType] = useState<'session' | 'episode'>('session')
+  const [newEpisodeCount, setNewEpisodeCount] = useState(9)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -57,6 +59,8 @@ export default function AdminPage() {
       name: newCourseName,
       instructor: newCourseInstructor,
       createdAt: new Date().toISOString(),
+      courseType: newCourseType,
+      episodeCount: newCourseType === 'episode' ? newEpisodeCount : undefined,
     }
 
     const updated = [...courses, newCourse]
@@ -65,6 +69,8 @@ export default function AdminPage() {
     toast.success('✅ 강의가 추가되었습니다')
     setNewCourseName('')
     setNewCourseInstructor('')
+    setNewCourseType('session')
+    setNewEpisodeCount(9)
   }
 
   const handleDeleteCourse = (id: string) => {
@@ -78,12 +84,6 @@ export default function AdminPage() {
     const attendanceData: any[] = []
 
     courses.forEach((course) => {
-      attendanceData.push({
-        강의명: course.name,
-        강사: course.instructor,
-        날짜: new Date().toLocaleDateString('ko-KR'),
-      })
-
       const allKeys = Object.keys(localStorage)
       allKeys.forEach((key) => {
         if (key.startsWith(`attendance_`) && key.endsWith(`_${course.id}`)) {
@@ -92,12 +92,19 @@ export default function AdminPage() {
           const userId = parts.slice(1, -1).join('_')
 
           data.forEach((record: any) => {
+            let statusText = '출석'
+            if (record.status === 'late') statusText = '지각'
+            else if (record.status === 'absent') statusText = '결석'
+            else if (record.status === 'excused') statusText = '공가'
+
             attendanceData.push({
               강의명: course.name,
+              강사: course.instructor,
               학생ID: userId,
               날짜: record.date,
               시간: record.time,
-              상태: record.status === 'present' ? '출석' : '지각',
+              상태: statusText,
+              사유: record.reason || '',
             })
           })
         }
@@ -206,6 +213,34 @@ export default function AdminPage() {
                   placeholder="예: 홍길동"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  강의 유형
+                </label>
+                <select
+                  value={newCourseType}
+                  onChange={(e) => setNewCourseType(e.target.value as 'session' | 'episode')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="session">특강식 (회차 없음)</option>
+                  <option value="episode">회차식 (MBA, 연속강의 등)</option>
+                </select>
+              </div>
+              {newCourseType === 'episode' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    회차 수
+                  </label>
+                  <input
+                    type="number"
+                    value={newEpisodeCount}
+                    onChange={(e) => setNewEpisodeCount(Number(e.target.value))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    min="1"
+                    max="50"
+                  />
+                </div>
+              )}
               <button
                 onClick={handleAddCourse}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg transition"

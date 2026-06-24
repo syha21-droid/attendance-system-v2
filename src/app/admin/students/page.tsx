@@ -13,6 +13,8 @@ interface StudentWithAttendance {
   createdAt: string
   attendanceCount: number
   lateCount: number
+  absentCount: number
+  excusedCount: number
 }
 
 export default function StudentsPage() {
@@ -26,44 +28,52 @@ export default function StudentsPage() {
 
   const loadStudents = async () => {
     try {
-      if (!supabase) {
-        setLoading(false)
-        return
-      }
+      const allStudents: StudentWithAttendance[] = []
+      const allKeys = Object.keys(localStorage)
+      const userIds = new Set<string>()
 
-      const { data: usersData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('role', 'student')
+      // localStorage에서 모든 학생 ID 추출
+      allKeys.forEach((key) => {
+        if (key.startsWith('attendance_')) {
+          const parts = key.split('_')
+          if (parts.length >= 3) {
+            const userId = parts.slice(1, -1).join('_')
+            userIds.add(userId)
+          }
+        }
+      })
 
-      if (usersData && usersData.length > 0) {
-        const studentsWithAttendance = await Promise.all(
-          usersData.map(async (user: any) => {
-            const { data: attendanceData } = await supabase!
-              .from('attendances')
-              .select('*')
-              .eq('user_id', user.id)
+      // 각 학생의 모든 강의에서 출석 정보 수집
+      userIds.forEach((userId) => {
+        let totalAttendance = 0
+        let totalLate = 0
+        let totalAbsent = 0
+        let totalExcused = 0
 
-            const attendanceCount = attendanceData?.filter(
-              (a: any) => a.status === 'present'
-            ).length || 0
-            const lateCount = attendanceData?.filter(
-              (a: any) => a.status === 'late'
-            ).length || 0
+        allKeys.forEach((key) => {
+          if (key.startsWith(`attendance_${userId}_`)) {
+            const data = JSON.parse(localStorage.getItem(key) || '[]')
+            totalAttendance += data.filter((r: any) => r.status === 'present').length
+            totalLate += data.filter((r: any) => r.status === 'late').length
+            totalAbsent += data.filter((r: any) => r.status === 'absent').length
+            totalExcused += data.filter((r: any) => r.status === 'excused').length
+          }
+        })
 
-            return {
-              id: user.id,
-              name: user.name,
-              email: user.email,
-              enrolledCourses: 0,
-              createdAt: user.created_at,
-              attendanceCount,
-              lateCount,
-            }
-          })
-        )
-        setStudents(studentsWithAttendance)
-      }
+        allStudents.push({
+          id: userId,
+          name: userId,
+          email: '',
+          enrolledCourses: 0,
+          createdAt: new Date().toISOString(),
+          attendanceCount: totalAttendance,
+          lateCount: totalLate,
+          absentCount: totalAbsent,
+          excusedCount: totalExcused,
+        })
+      })
+
+      setStudents(allStudents)
     } catch (error) {
       console.error('Error loading students:', error)
     } finally {
@@ -119,7 +129,7 @@ export default function StudentsPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-gray-600">
-                      ✅ 출석: {student.attendanceCount}회 | ⏰ 지각: {student.lateCount}회
+                      ✅ 출석: {student.attendanceCount}회 | ⏰ 지각: {student.lateCount}회 | ❌ 결석: {student.absentCount}회 | 🏥 공가: {student.excusedCount}회
                     </p>
                     <p className="text-xs text-gray-500">가입: {new Date(student.createdAt).toLocaleDateString('ko-KR')}</p>
                   </div>

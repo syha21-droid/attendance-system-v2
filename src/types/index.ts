@@ -10,6 +10,8 @@ export interface Course {
   name: string
   instructor: string
   createdAt: string
+  courseType?: 'session' | 'episode' // session: 특강식, episode: 회차식
+  episodeCount?: number // 회차 수 (회차식일 때만)
 }
 
 export interface Attendance {
