@@ -215,9 +215,43 @@ export default function CoursePage() {
     toast.success(`${statusMessage} ${course.name} ${currentClass.name}: ${currentTime}`)
   }
 
+  const canExit = (): boolean => {
+    if (!currentClass || !isAttended) return false
+
+    const now = new Date()
+    const currentMinutes = now.getHours() * 60 + now.getMinutes()
+
+    const [endHour, endMin] = currentClass.endTime.split(':').map(Number)
+    const endMinutes = endHour * 60 + endMin
+    const exitAvailableMinutes = endMinutes - 5
+
+    return currentMinutes >= exitAvailableMinutes
+  }
+
+  const getExitTimeRemaining = (): string => {
+    if (!currentClass) return ''
+
+    const now = new Date()
+    const currentMinutes = now.getHours() * 60 + now.getMinutes()
+
+    const [endHour, endMin] = currentClass.endTime.split(':').map(Number)
+    const endMinutes = endHour * 60 + endMin
+    const exitAvailableMinutes = endMinutes - 5
+
+    const remainingMinutes = exitAvailableMinutes - currentMinutes
+
+    if (remainingMinutes <= 0) return '지금 퇴장 가능'
+    return `${remainingMinutes}분 후 퇴장 가능`
+  }
+
   const handleExit = () => {
     if (!user || !isAttended) {
       toast.error('입장하지 않았습니다')
+      return
+    }
+
+    if (!canExit()) {
+      toast.error(`❌ 아직 퇴장할 수 없습니다.\n${getExitTimeRemaining()}`)
       return
     }
 
@@ -534,12 +568,27 @@ export default function CoursePage() {
                   <div className="space-y-3 bg-green-100 border-2 border-green-400 p-4 rounded-lg">
                     <p className="text-green-900 font-bold text-lg">✅ 수강 중...</p>
                     <p className="text-sm text-green-800">입장 시간: {attendanceStartTime}</p>
-                    <button
-                      onClick={handleExit}
-                      className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-red-700 transition"
-                    >
-                      🚪 퇴장
-                    </button>
+                    {canExit() ? (
+                      <>
+                        <p className="text-green-700 font-bold text-base">🎉 퇴장 가능!</p>
+                        <button
+                          onClick={handleExit}
+                          className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-red-700 transition"
+                        >
+                          🚪 퇴장
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-orange-700 font-bold text-base">⏳ {getExitTimeRemaining()}</p>
+                        <button
+                          disabled
+                          className="w-full bg-gray-400 text-white py-4 rounded-lg font-bold text-lg cursor-not-allowed opacity-50"
+                        >
+                          🚪 퇴장 (아직 불가)
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </>
