@@ -39,7 +39,7 @@ export default function CoursePage() {
   const [brightness, setBrightness] = useState<number | null>(null) // 밝기 값 (사진 대신)
   const [exitCodeInput, setExitCodeInput] = useState('') // 퇴장 코드 입력
   const [exitCodeVerified, setExitCodeVerified] = useState(false) // 퇴장 코드 검증
-  const [isOnline, setIsOnline] = useState<boolean | null>(null) // 온라인/오프라인 선택
+  const [isOnline] = useState<boolean>(false) // 항상 오프라인(강의실)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -497,7 +497,6 @@ export default function CoursePage() {
         sessionStorage.removeItem(`attending_${user.id}_${courseId}`)
         setIsAttended(false)
         setAttendanceStartTime(null)
-        setIsOnline(null)
         setCodeVerified(false)
         setExitCodeVerified(false)
         setEnvironmentOk(false)
@@ -750,10 +749,7 @@ export default function CoursePage() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-900">📷 {isOnline ? '강의 화면' : '얼굴 인식'}</h3>
                 <button
-                  onClick={() => {
-                    stopCamera()
-                    setIsOnline(null)
-                  }}
+                  onClick={stopCamera}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <X className="w-6 h-6" />
@@ -795,54 +791,14 @@ export default function CoursePage() {
               <h3 className="text-xl font-bold text-gray-900">출석 등록</h3>
             </div>
 
-            {/* 온라인/오프라인 선택 - 항상 보임 */}
-            <div className="mb-4 space-y-2">
-              <p className="text-sm font-bold text-gray-700 mb-2">📍 학습 방식 선택:</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    setIsOnline(false)
-                    setEnvironmentOk(false)
-                    setFaceDetected(false)
-                    setCodeVerified(false)
-                    setExitCodeVerified(false)
-                  }}
-                  className={`py-3 px-4 rounded-lg font-bold text-sm transition ${
-                    isOnline === false
-                      ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white shadow-lg'
-                      : isOnline === null
-                      ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:shadow-lg'
-                      : 'bg-gray-300 text-gray-600 cursor-not-allowed opacity-50'
-                  }`}
-                  disabled={isOnline === true && isAttended}
-                >
-                  🏢 강의실
-                </button>
-                <button
-                  onClick={() => {
-                    setIsOnline(true)
-                    setEnvironmentOk(false)
-                    setFaceDetected(false)
-                    setCodeVerified(false)
-                    setExitCodeVerified(false)
-                  }}
-                  className={`py-3 px-4 rounded-lg font-bold text-sm transition ${
-                    isOnline === true
-                      ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 text-white shadow-lg'
-                      : isOnline === null
-                      ? 'bg-gradient-to-r from-cyan-400 to-cyan-500 text-white hover:shadow-lg'
-                      : 'bg-gray-300 text-gray-600 cursor-not-allowed opacity-50'
-                  }`}
-                  disabled={isOnline === false && isAttended}
-                >
-                  💻 온라인
-                </button>
-              </div>
+            {/* 학습 방식 (관리자가 설정) */}
+            <div className="mb-4 p-3 bg-purple-100 border-2 border-purple-300 rounded-lg">
+              <p className="text-sm font-bold text-purple-900">📍 학습 방식: <span className="text-lg">🏢 강의실</span></p>
+              <p className="text-xs text-purple-700 mt-1">강의실 환경에서만 출석 가능합니다.</p>
             </div>
 
             {/* 카메라 확인 섹션 */}
-            {isOnline !== null && (
-              <div className="mb-4">
+            <div className="mb-4">
                 {!environmentOk ? (
                   <button
                     onClick={startCamera}
@@ -859,8 +815,7 @@ export default function CoursePage() {
                     </p>
                   </div>
                 )}
-              </div>
-            )}
+            </div>
             {currentClass ? (
               <>
                 <p className="text-gray-600 mb-4">현재 시간: {currentClass.name}</p>
@@ -937,26 +892,13 @@ export default function CoursePage() {
                         />
                       </div>
 
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleExcuse}
-                          disabled={!absenceCategory || !absenceReason.trim()}
-                          className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                        >
-                          ✅ 공가 신청
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsConfirmingAttendance(false)
-                            setSelectedStatus(null)
-                            setAbsenceCategory(null)
-                            setAbsenceReason('')
-                          }}
-                          className="flex-1 bg-gray-600 text-white py-2 rounded-lg font-medium hover:bg-gray-700"
-                        >
-                          취소
-                        </button>
-                      </div>
+                      <button
+                        onClick={handleExcuse}
+                        disabled={!absenceCategory || !absenceReason.trim()}
+                        className="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      >
+                        ✅ 공가 신청
+                      </button>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -965,15 +907,6 @@ export default function CoursePage() {
                         className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700"
                       >
                         ✅ 입장 확인
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsConfirmingAttendance(false)
-                          setSelectedStatus(null)
-                        }}
-                        className="w-full bg-gray-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-gray-700"
-                      >
-                        취소
                       </button>
                     </div>
                   )
