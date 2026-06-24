@@ -35,7 +35,7 @@ export default function CoursePage() {
   const [showCamera, setShowCamera] = useState(false) // 카메라 표시
   const [faceDetected, setFaceDetected] = useState(false) // 얼굴 감지
   const [environmentOk, setEnvironmentOk] = useState(false) // 환경 확인
-  const [capturePhoto, setCapturePhoto] = useState<string | null>(null) // 캡처된 사진
+  const [brightness, setBrightness] = useState<number | null>(null) // 밝기 값 (사진 대신)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -184,8 +184,8 @@ export default function CoursePage() {
       return
     }
 
-    // ✅ 카메라 사진 필수
-    if (!capturePhoto || !environmentOk) {
+    // ✅ 얼굴 인식 + 환경 확인 필수
+    if (!faceDetected || !environmentOk) {
       toast.error('❌ 먼저 얼굴 인식으로 환경을 확인해야 합니다.')
       return
     }
@@ -216,7 +216,9 @@ export default function CoursePage() {
       status: status,
       class: currentClass.name,
       reason: selectedStatus === 'excused' ? absenceReason : undefined,
-      photo: capturePhoto, // 사진 저장
+      // 개인정보 보호: 사진 대신 인증 여부만 기록
+      faceVerified: faceDetected,
+      brightnessLevel: brightness,
     }
 
     // 세션 저장 (임시)
@@ -263,24 +265,27 @@ export default function CoursePage() {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
     const data = imageData.data
 
-    let brightness = 0
+    let brightnessValue = 0
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i]
       const g = data[i + 1]
       const b = data[i + 2]
-      brightness += (r + g + b) / 3
+      brightnessValue += (r + g + b) / 3
     }
-    brightness = brightness / (data.length / 4)
+    brightnessValue = brightnessValue / (data.length / 4)
 
     // 강의실 환경: 100~220 (어두운 실내)
-    const isClassroom = brightness > 80 && brightness < 230
+    const isClassroom = brightnessValue > 80 && brightnessValue < 230
 
     if (!isClassroom) {
-      toast.error(`❌ 강의실 환경이 아닙니다.\n현재 밝기: ${Math.round(brightness)}`)
+      toast.error(`❌ 강의실 환경이 아닙니다.\n현재 밝기: ${Math.round(brightnessValue)}`)
       return false
     }
 
+    // 개인정보 보호: 사진은 저장하지 않고, 밝기값과 확인 상태만 기록
+    setBrightness(Math.round(brightnessValue))
     setEnvironmentOk(true)
+    setFaceDetected(true)
     return true
   }
 
@@ -294,14 +299,12 @@ export default function CoursePage() {
     canvasRef.current.height = videoRef.current.videoHeight
     ctx.drawImage(videoRef.current, 0, 0)
 
-    // 환경 분석
+    // 환경 분석 (사진 자체는 저장하지 않음)
     if (!analyzeEnvironment(canvasRef.current)) {
       return
     }
 
-    const photo = canvasRef.current.toDataURL('image/jpeg')
-    setCapturePhoto(photo)
-    toast.success('✅ 사진 촬영 완료!\n환경이 확인되었습니다.')
+    toast.success('✅ 얼굴 인식 완료!\n강의실 환경 확인됨')
 
     // 0.5초 후 카메라 종료
     setTimeout(() => {
@@ -667,7 +670,7 @@ export default function CoursePage() {
 
             {/* 카메라 확인 섹션 */}
             <div className="mb-4">
-              {!capturePhoto ? (
+              {!environmentOk ? (
                 <button
                   onClick={startCamera}
                   className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition flex items-center justify-center gap-2"
@@ -678,7 +681,7 @@ export default function CoursePage() {
               ) : (
                 <div className="bg-green-100 border-2 border-green-400 p-3 rounded-lg text-center">
                   <p className="text-green-700 font-bold">✅ 얼굴 인식 완료!</p>
-                  <p className="text-sm text-green-600">강의실 환경 확인됨</p>
+                  <p className="text-sm text-green-600">강의실 환경 확인됨 (밝기: {brightness})</p>
                 </div>
               )}
             </div>
