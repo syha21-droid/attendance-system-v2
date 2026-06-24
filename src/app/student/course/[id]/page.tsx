@@ -37,6 +37,7 @@ export default function CoursePage() {
   const [faceDetected, setFaceDetected] = useState(false) // 얼굴 감지
   const [environmentOk, setEnvironmentOk] = useState(false) // 환경 확인
   const [brightness, setBrightness] = useState<number | null>(null) // 밝기 값 (사진 대신)
+  const [monitorDetected, setMonitorDetected] = useState<boolean>(false) // 모니터 감지
   const [exitCodeInput, setExitCodeInput] = useState('') // 퇴장 코드 입력
   const [exitCodeVerified, setExitCodeVerified] = useState(false) // 퇴장 코드 검증
   const [isOnline] = useState<boolean>(false) // 항상 오프라인(강의실)
@@ -223,6 +224,7 @@ export default function CoursePage() {
       // 개인정보 보호: 사진 대신 인증 여부만 기록
       faceVerified: faceDetected,
       brightnessLevel: brightness,
+      monitorDetected: monitorDetected,
     }
 
     // 세션 저장 (임시)
@@ -262,6 +264,55 @@ export default function CoursePage() {
     }
   }
 
+  const detectMonitorInImage = (imageData: ImageData): boolean => {
+    const data = imageData.data
+    const pixelCount = data.length / 4
+
+    // 1. 밝은 픽셀 비율 계산 (모니터는 밝음)
+    let brightPixelCount = 0
+    let brightPixelRedSum = 0
+    let brightPixelGreenSum = 0
+    let brightPixelBlueSum = 0
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+      const brightness = (r + g + b) / 3
+
+      // 밝기가 170 이상인 픽셀 (모니터 특징)
+      if (brightness >= 170) {
+        brightPixelCount++
+        brightPixelRedSum += r
+        brightPixelGreenSum += g
+        brightPixelBlueSum += b
+      }
+    }
+
+    const brightPixelRatio = brightPixelCount / pixelCount
+
+    // 2. 모니터 영역이 충분히 있는지 (전체의 15% 이상)
+    const hasEnoughBrightArea = brightPixelRatio > 0.15
+
+    // 3. 밝은 영역에 색상 다양성이 있는지 (강의 화면)
+    if (brightPixelCount > 0) {
+      const avgBrightRed = brightPixelRedSum / brightPixelCount
+      const avgBrightGreen = brightPixelGreenSum / brightPixelCount
+      const avgBrightBlue = brightPixelBlueSum / brightPixelCount
+
+      const colorVariance = Math.abs(avgBrightRed - avgBrightGreen) +
+                           Math.abs(avgBrightGreen - avgBrightBlue) +
+                           Math.abs(avgBrightRed - avgBrightBlue)
+
+      // 색상이 어느정도 다양해야 함 (단순 흰색 배경 아님)
+      const hasColorVariance = colorVariance > 10
+
+      return hasEnoughBrightArea && hasColorVariance
+    }
+
+    return false
+  }
+
   const analyzeEnvironment = (canvas: HTMLCanvasElement): boolean => {
     const ctx = canvas.getContext('2d')
     if (!ctx) return false
@@ -287,63 +338,48 @@ export default function CoursePage() {
     const avgGreen = greenSum / pixelCount
     const avgBlue = blueSum / pixelCount
 
-    // 온라인 vs 오프라인 검증
-    if (isOnline) {
-      // 온라인: 강의 화면 검증 (모니터/밝은 화면)
-      // 강의 화면은 밝아야 함 (모니터 때문)
-      const isBrightnesOk = brightnessValue > 120
+    // 2. 모니터 감지 (모든 경우에 수행)
+    const hasMonitor = detectMonitorInImage(imageData)
+    setMonitorDetected(hasMonitor)
 
-      // 강의 화면은 텍스트나 슬라이드가 있으므로 색상 변화가 많음
-      const colorVariance = Math.abs(avgRed - avgGreen) + Math.abs(avgGreen - avgBlue) + Math.abs(avgRed - avgBlue)
-      const hasContent = colorVariance > 5 // 강의 콘텐츠가 있음
+    // 오프라인: 강의실 환경 검증
+    const isBrightnesOk = brightnessValue > 80 && brightnessValue < 230
 
-      if (!isBrightnesOk || !hasContent) {
-        const reason = !isBrightnesOk
-          ? `강의 화면이 어둡습니다 (밝기: ${Math.round(brightnessValue)})`
-          : '강의 화면이 제대로 보이지 않습니다'
-        toast.error(`❌ 강의 화면이 감지되지 않습니다.\n${reason}`)
-        return false
-      }
+    // 강의실은 보통 회색, 파란색, 갈색이 섞여있음
+    const colorVariance = Math.abs(avgRed - avgGreen) + Math.abs(avgGreen - avgBlue) + Math.abs(avgRed - avgBlue)
+    const hasNaturalColors = colorVariance > 10 // 다양한 색상이 섞여있음
 
-      setBrightness(Math.round(brightnessValue))
-      setEnvironmentOk(true)
-      setFaceDetected(true)
-      toast.success('✅ 강의 화면 확인됨!')
-      return true
-    } else {
-      // 오프라인: 강의실 환경 검증
-      const isBrightnesOk = brightnessValue > 80 && brightnessValue < 230
-
-      // 강의실은 보통 회색, 파란색, 갈색이 섞여있음
-      const colorVariance = Math.abs(avgRed - avgGreen) + Math.abs(avgGreen - avgBlue) + Math.abs(avgRed - avgBlue)
-      const hasNaturalColors = colorVariance > 10 // 다양한 색상이 섞여있음
-
-      // 엣지 감지 (직선이 많은 환경)
-      let edgeCount = 0
-      for (let i = 0; i < data.length - 8; i += 4) {
-        const diff = Math.abs(data[i] - data[i + 4]) + Math.abs(data[i + 1] - data[i + 5]) + Math.abs(data[i + 2] - data[i + 6])
-        if (diff > 30) edgeCount++
-      }
-      const hasStructure = edgeCount > (pixelCount * 0.05)
-
-      const isClassroom = isBrightnesOk && hasNaturalColors && hasStructure
-
-      if (!isClassroom) {
-        const reason = !isBrightnesOk
-          ? `밝기가 ${Math.round(brightnessValue)}입니다`
-          : !hasNaturalColors
-          ? '색상 분포가 부자연스럽습니다'
-          : '강의실 구조가 감지되지 않습니다'
-        toast.error(`❌ 강의실 환경이 아닙니다.\n${reason}`)
-        return false
-      }
-
-      setBrightness(Math.round(brightnessValue))
-      setEnvironmentOk(true)
-      setFaceDetected(true)
-      toast.success('✅ 강의실 환경 확인됨!')
-      return true
+    // 엣지 감지 (직선이 많은 환경)
+    let edgeCount = 0
+    for (let i = 0; i < data.length - 8; i += 4) {
+      const diff = Math.abs(data[i] - data[i + 4]) + Math.abs(data[i + 1] - data[i + 5]) + Math.abs(data[i + 2] - data[i + 6])
+      if (diff > 30) edgeCount++
     }
+    const hasStructure = edgeCount > (pixelCount * 0.05)
+
+    const isClassroom = isBrightnesOk && hasNaturalColors && hasStructure
+
+    if (!isClassroom) {
+      const reason = !isBrightnesOk
+        ? `밝기가 ${Math.round(brightnessValue)}입니다`
+        : !hasNaturalColors
+        ? '색상 분포가 부자연스럽습니다'
+        : '강의실 구조가 감지되지 않습니다'
+      toast.error(`❌ 강의실 환경이 아닙니다.\n${reason}`)
+      return false
+    }
+
+    setBrightness(Math.round(brightnessValue))
+    setEnvironmentOk(true)
+    setFaceDetected(true)
+
+    if (hasMonitor) {
+      toast.success('✅ 강의실 환경 확인됨!\n📺 모니터 화면 감지됨')
+    } else {
+      toast.success('✅ 강의실 환경 확인됨!')
+    }
+
+    return true
   }
 
   const capturePhotoForAttendance = () => {

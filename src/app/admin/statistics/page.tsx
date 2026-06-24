@@ -64,6 +64,10 @@ export default function StatisticsPage() {
         const excused = data.filter((r: any) => r.status === 'excused').length
         const total = data.length
 
+        // 모니터 감지 정보
+        const monitorDetectedCount = data.filter((r: any) => r.monitorDetected).length
+        const attendanceWithMonitor = data.filter((r: any) => r.status === 'present' && r.monitorDetected).length
+
         studentStats.set(userId, {
           id: userId,
           name: `학생_${userId.substring(0, 8)}`,
@@ -72,10 +76,13 @@ export default function StatisticsPage() {
           absent,
           excused,
           total,
+          monitorDetectedCount,
+          attendanceWithMonitor,
           attendanceRate: total > 0 ? Math.round((present / total) * 100) : 0,
           lateRate: total > 0 ? Math.round((late / total) * 100) : 0,
           absentRate: total > 0 ? Math.round((absent / total) * 100) : 0,
           excusedRate: total > 0 ? Math.round((excused / total) * 100) : 0,
+          monitorDetectionRate: present > 0 ? Math.round((attendanceWithMonitor / present) * 100) : 0,
         })
       }
     })
@@ -253,6 +260,7 @@ export default function StatisticsPage() {
                         <th className="text-center py-3 px-4 font-semibold text-gray-900">결석</th>
                         <th className="text-center py-3 px-4 font-semibold text-gray-900">공가</th>
                         <th className="text-center py-3 px-4 font-semibold text-gray-900">출석률</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-900">📺 모니터</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -293,6 +301,12 @@ export default function StatisticsPage() {
                                 ></div>
                               </div>
                               <span className="font-bold text-gray-900">{student.attendanceRate}%</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <div className="flex flex-col items-center">
+                              <span className="text-sm font-bold text-gray-900">{student.attendanceWithMonitor}/{student.present}</span>
+                              <span className="text-xs text-gray-600">({student.monitorDetectionRate}%)</span>
                             </div>
                           </td>
                         </tr>
