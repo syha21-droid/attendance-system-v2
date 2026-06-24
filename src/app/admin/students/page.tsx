@@ -15,6 +15,8 @@ interface StudentWithAttendance {
   lateCount: number
   absentCount: number
   excusedCount: number
+  exitCount: number
+  lastExitTime: string | null
 }
 
 export default function StudentsPage() {
@@ -56,6 +58,8 @@ export default function StudentsPage() {
         let totalLate = 0
         let totalAbsent = 0
         let totalExcused = 0
+        let totalExit = 0
+        let lastExitTime: string | null = null
 
         allKeys.forEach((key) => {
           if (key.startsWith(`attendance_${userId}_`)) {
@@ -64,6 +68,18 @@ export default function StudentsPage() {
             totalLate += data.filter((r: any) => r.status === 'late').length
             totalAbsent += data.filter((r: any) => r.status === 'absent').length
             totalExcused += data.filter((r: any) => r.status === 'excused').length
+
+            // 퇴장 기록 확인
+            const exitsInCourse = data.filter((r: any) => r.exitTime)
+            totalExit += exitsInCourse.length
+
+            // 가장 최근 퇴장 시간 찾기
+            if (exitsInCourse.length > 0) {
+              const mostRecentExit = exitsInCourse[exitsInCourse.length - 1]
+              if (!lastExitTime || mostRecentExit.exitTime > lastExitTime) {
+                lastExitTime = mostRecentExit.exitTime
+              }
+            }
           }
         })
 
@@ -83,6 +99,8 @@ export default function StudentsPage() {
           lateCount: totalLate,
           absentCount: totalAbsent,
           excusedCount: totalExcused,
+          exitCount: totalExit,
+          lastExitTime: lastExitTime,
         })
       })
 
@@ -99,6 +117,8 @@ export default function StudentsPage() {
             lateCount: 0,
             absentCount: 0,
             excusedCount: 0,
+            exitCount: 0,
+            lastExitTime: null,
           })
         }
       })
@@ -164,11 +184,22 @@ export default function StudentsPage() {
                     <p className="text-xs text-gray-500 mt-1">가입일: {new Date(student.createdAt).toLocaleDateString('ko-KR')}</p>
                   </div>
                   <div className="text-right">
-                    <div className="grid grid-cols-2 gap-2 text-sm font-semibold">
+                    <div className="grid grid-cols-3 gap-2 text-sm font-semibold mb-2">
                       <div className="bg-green-100 text-green-700 p-2 rounded">✅ {student.attendanceCount}회</div>
                       <div className="bg-yellow-100 text-yellow-700 p-2 rounded">⏰ {student.lateCount}회</div>
                       <div className="bg-red-100 text-red-700 p-2 rounded">❌ {student.absentCount}회</div>
                       <div className="bg-blue-100 text-blue-700 p-2 rounded">🏥 {student.excusedCount}회</div>
+                      <div className="bg-purple-100 text-purple-700 p-2 rounded">🚪 {student.exitCount}회</div>
+                      <div className="bg-indigo-100 text-indigo-700 p-2 rounded text-xs">
+                        {student.lastExitTime ? (
+                          <>
+                            <p className="font-bold">마지막 퇴장</p>
+                            <p>{student.lastExitTime}</p>
+                          </>
+                        ) : (
+                          <p>-</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
