@@ -74,6 +74,8 @@ export default function CourseDetailPage() {
 
   const loadStudents = async (cId: string) => {
     try {
+      if (!supabase) return
+
       const { data: usersData } = await supabase
         .from('users')
         .select('*')
@@ -82,7 +84,7 @@ export default function CourseDetailPage() {
       if (usersData && usersData.length > 0) {
         const studentsWithAttendance = await Promise.all(
           usersData.map(async (user: any) => {
-            const { data: attendanceData } = await supabase
+            const { data: attendanceData } = await supabase!
               .from('attendances')
               .select('*')
               .eq('user_id', user.id)

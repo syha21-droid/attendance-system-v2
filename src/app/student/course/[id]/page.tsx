@@ -40,6 +40,18 @@ export default function CoursePage() {
   }, [courseId, router, setUser])
 
   const loadAttendanceData = async (userId: string) => {
+    if (!supabase) {
+      const attendanceKey = `attendance_${userId}_${courseId}`
+      const saved = localStorage.getItem(attendanceKey)
+      if (saved) {
+        const records = JSON.parse(saved)
+        setAttendances(records.length)
+        const late = records.filter((r: any) => r.status === 'late').length
+        setLateCount(late)
+      }
+      return
+    }
+
     const { data, error } = await supabase
       .from('attendances')
       .select('*')
@@ -69,39 +81,66 @@ export default function CoursePage() {
     const todayDate = now.toLocaleDateString('ko-KR')
     const currentTime = now.toLocaleTimeString('ko-KR')
 
-    const { data: existingRecords } = await supabase
-      .from('attendances')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('course_id', courseId)
-      .eq('date', todayDate)
+    if (supabase) {
+      const { data: existingRecords } = await supabase
+        .from('attendances')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('course_id', courseId)
+        .eq('date', todayDate)
+
+      let status = 'present'
+      let statusMessage = '✅ 출석'
+
+      if (existingRecords && existingRecords.length > 0) {
+        status = 'late'
+        statusMessage = '⏰ 지각'
+      }
+
+      const { error } = await supabase
+        .from('attendances')
+        .insert([
+          {
+            user_id: user.id,
+            course_id: courseId,
+            date: todayDate,
+            time: currentTime,
+            status: status,
+          },
+        ])
+
+      if (!error) {
+        loadAttendanceData(user.id)
+        toast.success(`${statusMessage} ${course.name} 확인: ${currentTime}`)
+        return
+      }
+    }
+
+    const attendanceKey = `attendance_${user.id}_${courseId}`
+    const firstAttendanceKey = `first_attendance_${user.id}_${courseId}`
+    const saved = localStorage.getItem(attendanceKey)
+    const firstAttendanceStr = localStorage.getItem(firstAttendanceKey)
 
     let status = 'present'
     let statusMessage = '✅ 출석'
 
-    if (existingRecords && existingRecords.length > 0) {
-      status = 'late'
-      statusMessage = '⏰ 지각'
-    }
-
-    const { error } = await supabase
-      .from('attendances')
-      .insert([
-        {
-          user_id: user.id,
-          course_id: courseId,
-          date: todayDate,
-          time: currentTime,
-          status: status,
-        },
-      ])
-
-    if (!error) {
-      loadAttendanceData(user.id)
-      toast.success(`${statusMessage} ${course.name} 확인: ${currentTime}`)
+    if (firstAttendanceStr) {
+      const firstAttendance = JSON.parse(firstAttendanceStr)
+      if (firstAttendance.date === todayDate) {
+        status = 'late'
+        statusMessage = '⏰ 지각'
+      } else {
+        localStorage.setItem(firstAttendanceKey, JSON.stringify({ date: todayDate, time: currentTime }))
+      }
     } else {
-      toast.error('출석 저장 실패. 잠시 후 다시 시도해주세요.')
+      localStorage.setItem(firstAttendanceKey, JSON.stringify({ date: todayDate, time: currentTime }))
     }
+
+    const attendanceRecord = { date: todayDate, time: currentTime, status }
+    const updated = saved ? [...JSON.parse(saved), attendanceRecord] : [attendanceRecord]
+    localStorage.setItem(attendanceKey, JSON.stringify(updated))
+    setAttendances(updated.length)
+    toast.success(`${statusMessage} ${course.name} 확인: ${currentTime}`)
   }
 
   const handleDropout = () => {
