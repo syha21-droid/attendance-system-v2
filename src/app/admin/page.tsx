@@ -192,19 +192,19 @@ export default function AdminPage() {
         <div className="bg-white rounded-lg shadow p-8 mt-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-6">🎯 관리 메뉴</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button className="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition text-left">
+            <button onClick={() => router.push('/admin/attendance')} className="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition text-left cursor-pointer">
               <p className="font-semibold text-blue-900">📊 출석 현황 조회</p>
               <p className="text-sm text-blue-700">학생별 출석 현황을 조회합니다</p>
             </button>
-            <button className="p-4 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition text-left">
+            <button onClick={() => router.push('/admin/students')} className="p-4 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition text-left cursor-pointer">
               <p className="font-semibold text-green-900">👥 학생 관리</p>
               <p className="text-sm text-green-700">학생 목록을 조회합니다</p>
             </button>
-            <button className="p-4 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition text-left">
+            <button onClick={() => router.push('/admin/late')} className="p-4 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition text-left cursor-pointer">
               <p className="font-semibold text-yellow-900">⏰ 지각 관리</p>
               <p className="text-sm text-yellow-700">지각 학생을 관리합니다</p>
             </button>
-            <button className="p-4 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition text-left">
+            <button onClick={() => router.push('/admin/dropout')} className="p-4 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition text-left cursor-pointer">
               <p className="font-semibold text-red-900">🚫 중간이탈 관리</p>
               <p className="text-sm text-red-700">중간이탈 학생을 관리합니다</p>
             </button>
