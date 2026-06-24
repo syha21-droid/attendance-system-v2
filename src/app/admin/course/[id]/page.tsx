@@ -55,6 +55,9 @@ export default function CourseDetailPage() {
   const [selectedQRClass, setSelectedQRClass] = useState<number | null>(null)
   const [activeCode, setActiveCode] = useState<string | null>(null)
   const [codeGeneratedTime, setCodeGeneratedTime] = useState<string | null>(null)
+  const [activeExitCode, setActiveExitCode] = useState<string | null>(null)
+  const [exitCodeGeneratedTime, setExitCodeGeneratedTime] = useState<string | null>(null)
+  const [studentStatus, setStudentStatus] = useState<Map<string, { name: string; status: 'entered' | 'progress' | 'exited' | 'none'; enterTime?: string; exitTime?: string }>>(new Map())
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -320,6 +323,28 @@ export default function CourseDetailPage() {
 
     toast.success(`✅ 출석 코드 생성됨: ${newCode}\n(5분 유효)`)
   }
+
+  const generateExitCode = () => {
+    if (!course) return
+
+    // 4자리 랜덤 코드 생성
+    const newCode = Math.floor(1000 + Math.random() * 9000).toString()
+    const now = new Date()
+    const generatedTime = now.toLocaleTimeString('ko-KR')
+
+    setActiveExitCode(newCode)
+    setExitCodeGeneratedTime(generatedTime)
+
+    // localStorage에 현재 활성 퇴장 코드 저장
+    const exitCodeKey = `course_exit_code_${course.id}`
+    localStorage.setItem(exitCodeKey, JSON.stringify({
+      code: newCode,
+      generatedAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + 5 * 60000).toISOString(), // 5분 후 만료
+    }))
+
+    toast.success(`✅ 퇴장 코드 생성됨: ${newCode}\n(5분 유효)`)
+  }
   }
 
   const handleSaveSchedule = () => {
@@ -475,6 +500,29 @@ export default function CourseDetailPage() {
               className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition"
             >
               🔐 새 출석 코드 생성
+            </button>
+          </div>
+
+          {/* 퇴장 코드 시스템 */}
+          <div className="bg-orange-50 border-2 border-orange-200 p-4 rounded-lg mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-semibold text-orange-900">🚪 퇴장 확인 코드</p>
+            </div>
+            {activeExitCode ? (
+              <div className="bg-white p-4 rounded-lg border-2 border-orange-400 mb-3">
+                <p className="text-sm text-gray-600 mb-2">현재 활성 코드:</p>
+                <p className="text-4xl font-bold text-orange-600 text-center mb-2">{activeExitCode}</p>
+                <p className="text-xs text-gray-500 text-center">생성: {exitCodeGeneratedTime}</p>
+                <p className="text-xs text-gray-500 text-center">(5분 유효)</p>
+              </div>
+            ) : (
+              <p className="text-orange-700 text-sm mb-3">아직 생성된 코드가 없습니다</p>
+            )}
+            <button
+              onClick={generateExitCode}
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg transition"
+            >
+              🚪 새 퇴장 코드 생성
             </button>
           </div>
 

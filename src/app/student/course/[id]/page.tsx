@@ -461,11 +461,11 @@ export default function CoursePage() {
       return
     }
 
-    const codeKey = `course_code_${courseId}`
-    const savedCode = localStorage.getItem(codeKey)
+    const exitCodeKey = `course_exit_code_${courseId}`
+    const savedCode = localStorage.getItem(exitCodeKey)
 
     if (!savedCode) {
-      toast.error('❌ 현재 활성 코드가 없습니다.\n관리자에게 문의하세요.')
+      toast.error('❌ 현재 활성 퇴장 코드가 없습니다.\n관리자에게 문의하세요.')
       return
     }
 
