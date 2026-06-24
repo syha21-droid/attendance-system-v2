@@ -795,26 +795,50 @@ export default function CoursePage() {
               <h3 className="text-xl font-bold text-gray-900">출석 등록</h3>
             </div>
 
-            {/* 온라인/오프라인 선택 */}
-            {isOnline === null && (
-              <div className="mb-4 space-y-2">
-                <p className="text-sm font-bold text-gray-700 mb-2">📍 학습 방식 선택:</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setIsOnline(false)}
-                    className="py-3 px-4 rounded-lg font-bold text-sm transition bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:shadow-lg"
-                  >
-                    🏢 강의실
-                  </button>
-                  <button
-                    onClick={() => setIsOnline(true)}
-                    className="py-3 px-4 rounded-lg font-bold text-sm transition bg-gradient-to-r from-cyan-400 to-cyan-500 text-white hover:shadow-lg"
-                  >
-                    💻 온라인
-                  </button>
-                </div>
+            {/* 온라인/오프라인 선택 - 항상 보임 */}
+            <div className="mb-4 space-y-2">
+              <p className="text-sm font-bold text-gray-700 mb-2">📍 학습 방식 선택:</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    setIsOnline(false)
+                    setEnvironmentOk(false)
+                    setFaceDetected(false)
+                    setCodeVerified(false)
+                    setExitCodeVerified(false)
+                  }}
+                  className={`py-3 px-4 rounded-lg font-bold text-sm transition ${
+                    isOnline === false
+                      ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white shadow-lg'
+                      : isOnline === null
+                      ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:shadow-lg'
+                      : 'bg-gray-300 text-gray-600 cursor-not-allowed opacity-50'
+                  }`}
+                  disabled={isOnline === true && isAttended}
+                >
+                  🏢 강의실
+                </button>
+                <button
+                  onClick={() => {
+                    setIsOnline(true)
+                    setEnvironmentOk(false)
+                    setFaceDetected(false)
+                    setCodeVerified(false)
+                    setExitCodeVerified(false)
+                  }}
+                  className={`py-3 px-4 rounded-lg font-bold text-sm transition ${
+                    isOnline === true
+                      ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 text-white shadow-lg'
+                      : isOnline === null
+                      ? 'bg-gradient-to-r from-cyan-400 to-cyan-500 text-white hover:shadow-lg'
+                      : 'bg-gray-300 text-gray-600 cursor-not-allowed opacity-50'
+                  }`}
+                  disabled={isOnline === false && isAttended}
+                >
+                  💻 온라인
+                </button>
               </div>
-            )}
+            </div>
 
             {/* 카메라 확인 섹션 */}
             {isOnline !== null && (
