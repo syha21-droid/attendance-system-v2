@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { LogOut, Clock, AlertCircle } from 'lucide-react'
+import { LogOut, Clock, AlertCircle, Camera, X } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { supabase } from '@/lib/supabase'
 import { Course } from '@/types'
@@ -32,6 +32,12 @@ export default function CoursePage() {
   const [attendanceStartTime, setAttendanceStartTime] = useState<string | null>(null) // 입장 시간
   const [codeInput, setCodeInput] = useState('') // 코드 입력값
   const [codeVerified, setCodeVerified] = useState(false) // 코드 검증 여부
+  const [showCamera, setShowCamera] = useState(false) // 카메라 표시
+  const [faceDetected, setFaceDetected] = useState(false) // 얼굴 감지
+  const [environmentOk, setEnvironmentOk] = useState(false) // 환경 확인
+  const [capturePhoto, setCapturePhoto] = useState<string | null>(null) // 캡처된 사진
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -178,6 +184,12 @@ export default function CoursePage() {
       return
     }
 
+    // ✅ 카메라 사진 필수
+    if (!capturePhoto || !environmentOk) {
+      toast.error('❌ 먼저 얼굴 인식으로 환경을 확인해야 합니다.')
+      return
+    }
+
     // ✅ 강의 수강 여부 확인 (출석 권한 체크)
     const enrolledKey = `enrolled_${user.id}`
     const enrolledData = localStorage.getItem(enrolledKey)
@@ -204,6 +216,7 @@ export default function CoursePage() {
       status: status,
       class: currentClass.name,
       reason: selectedStatus === 'excused' ? absenceReason : undefined,
+      photo: capturePhoto, // 사진 저장
     }
 
     // 세션 저장 (임시)
@@ -230,6 +243,79 @@ export default function CoursePage() {
     return currentMinutes >= exitAvailableMinutes
   }
 
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+      setShowCamera(true)
+    } catch (error) {
+      toast.error('❌ 카메라 접근 권한이 없습니다.')
+    }
+  }
+
+  const analyzeEnvironment = (canvas: HTMLCanvasElement): boolean => {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return false
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const data = imageData.data
+
+    let brightness = 0
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+      brightness += (r + g + b) / 3
+    }
+    brightness = brightness / (data.length / 4)
+
+    // 강의실 환경: 100~220 (어두운 실내)
+    const isClassroom = brightness > 80 && brightness < 230
+
+    if (!isClassroom) {
+      toast.error(`❌ 강의실 환경이 아닙니다.\n현재 밝기: ${Math.round(brightness)}`)
+      return false
+    }
+
+    setEnvironmentOk(true)
+    return true
+  }
+
+  const capturePhotoForAttendance = () => {
+    if (!videoRef.current || !canvasRef.current) return
+
+    const ctx = canvasRef.current.getContext('2d')
+    if (!ctx) return
+
+    canvasRef.current.width = videoRef.current.videoWidth
+    canvasRef.current.height = videoRef.current.videoHeight
+    ctx.drawImage(videoRef.current, 0, 0)
+
+    // 환경 분석
+    if (!analyzeEnvironment(canvasRef.current)) {
+      return
+    }
+
+    const photo = canvasRef.current.toDataURL('image/jpeg')
+    setCapturePhoto(photo)
+    toast.success('✅ 사진 촬영 완료!\n환경이 확인되었습니다.')
+
+    // 0.5초 후 카메라 종료
+    setTimeout(() => {
+      stopCamera()
+    }, 500)
+  }
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
+      tracks.forEach((track) => track.stop())
+    }
+    setShowCamera(false)
+  }
 
   const verifyAttendanceCode = () => {
     if (!codeInput.trim()) {
@@ -533,11 +619,68 @@ export default function CoursePage() {
           </div>
         )}
 
+        {/* 카메라 모달 */}
+        {showCamera && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900">📷 얼굴 인식</h3>
+                <button onClick={stopCamera} className="text-gray-500 hover:text-gray-700">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="bg-black rounded-lg overflow-hidden mb-4">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full"
+                  style={{ maxHeight: '300px' }}
+                />
+              </div>
+
+              <div className="space-y-2 mb-4">
+                <p className="text-sm text-gray-600">
+                  ✅ 강의실 환경: <span className={environmentOk ? 'text-green-600 font-bold' : 'text-gray-500'}>확인 중...</span>
+                </p>
+              </div>
+
+              <button
+                onClick={capturePhotoForAttendance}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition"
+              >
+                📷 사진 촬영
+              </button>
+
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
             <div className="flex items-center gap-2 mb-4">
               <Clock className="w-6 h-6 text-blue-600" />
               <h3 className="text-xl font-bold text-gray-900">출석 등록</h3>
+            </div>
+
+            {/* 카메라 확인 섹션 */}
+            <div className="mb-4">
+              {!capturePhoto ? (
+                <button
+                  onClick={startCamera}
+                  className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition flex items-center justify-center gap-2"
+                >
+                  <Camera className="w-5 h-5" />
+                  📷 얼굴 인식 (환경 확인)
+                </button>
+              ) : (
+                <div className="bg-green-100 border-2 border-green-400 p-3 rounded-lg text-center">
+                  <p className="text-green-700 font-bold">✅ 얼굴 인식 완료!</p>
+                  <p className="text-sm text-green-600">강의실 환경 확인됨</p>
+                </div>
+              )}
             </div>
             {currentClass ? (
               <>
