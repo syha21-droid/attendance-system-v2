@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📚 출석 및 학습 관리 시스템
 
-## Getting Started
+학생의 출석을 관리하고 학습 현황을 추적하는 완벽한 웹 시스템입니다.
 
-First, run the development server:
+## ✨ 주요 기능
 
-```bash
+### 👨‍🎓 학생 기능
+- **회원가입 및 로그인**: 이메일과 비밀번호를 사용한 사용자 인증
+- **강의 등록**: 학생이 수강할 강의 선택 및 등록
+- **출석 확인**: 강의별 출석 버튼 클릭으로 출석 시간 자동 기록
+- **통계 조회**: 등록한 강의 수, 총 출석 횟수, 출석률 확인
+- **강의 중단**: 수강 중인 강의 중단 신청
+
+### 👨‍💼 관리자 기능
+- **강의 관리**: 강의 추가 및 삭제
+- **학생 출석 현황**: 학생별, 강의별 출석 조회
+- **통계 대시보드**: 전체 학생 수, 평균 출석률 등 통계
+
+## 🚀 빠른 시작
+
+### 개발 서버 실행
+\`\`\`bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+\`\`\`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+브라우저: http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🧪 테스트 계정
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**학생**: student@test.com / 123456
+**관리자**: admin@test.com / 123456
 
-## Learn More
+## 🛠 기술 스택
 
-To learn more about Next.js, take a look at the following resources:
+- Next.js 16, React 19, TypeScript
+- Tailwind CSS, Zustand, React Hot Toast
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📧 연락처
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 담당: 김도현 (Kim Do Hyun)
+- 이메일: seoyunha87@gmail.com
