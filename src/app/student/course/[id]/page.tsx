@@ -16,6 +16,7 @@ export default function CoursePage() {
 
   const [course, setCourse] = useState<Course | null>(null)
   const [attendances, setAttendances] = useState(0)
+  const [lateCount, setLateCount] = useState(0)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -37,7 +38,10 @@ export default function CoursePage() {
     const attendanceKey = `attendance_${userData.id}_${courseId}`
     const saved = localStorage.getItem(attendanceKey)
     if (saved) {
-      setAttendances(JSON.parse(saved).length)
+      const records = JSON.parse(saved)
+      setAttendances(records.length)
+      const late = records.filter((r: any) => r.status === 'late').length
+      setLateCount(late)
     }
   }, [courseId, router, setUser])
 
@@ -45,19 +49,44 @@ export default function CoursePage() {
     if (!user || !course) return
 
     const now = new Date()
-    const attendanceRecord = {
-      date: now.toLocaleDateString('ko-KR'),
-      time: now.toLocaleTimeString('ko-KR'),
-      status: 'present',
-    }
+    const todayDate = now.toLocaleDateString('ko-KR')
+    const currentTime = now.toLocaleTimeString('ko-KR')
 
     const attendanceKey = `attendance_${user.id}_${courseId}`
+    const firstAttendanceKey = `first_attendance_${user.id}_${courseId}`
+
     const saved = localStorage.getItem(attendanceKey)
+    const firstAttendanceStr = localStorage.getItem(firstAttendanceKey)
+
+    let status = 'present'
+    let statusMessage = '✅ 출석'
+
+    // 같은 날짜에 이미 첫 출석이 있으면 지각으로 처리
+    if (firstAttendanceStr) {
+      const firstAttendance = JSON.parse(firstAttendanceStr)
+      if (firstAttendance.date === todayDate) {
+        status = 'late'
+        statusMessage = '⏰ 지각'
+      } else {
+        // 다른 날짜면 첫 출석 업데이트
+        localStorage.setItem(firstAttendanceKey, JSON.stringify({ date: todayDate, time: currentTime }))
+      }
+    } else {
+      // 첫 출석 저장
+      localStorage.setItem(firstAttendanceKey, JSON.stringify({ date: todayDate, time: currentTime }))
+    }
+
+    const attendanceRecord = {
+      date: todayDate,
+      time: currentTime,
+      status: status,
+    }
+
     const updated = saved ? [...JSON.parse(saved), attendanceRecord] : [attendanceRecord]
     localStorage.setItem(attendanceKey, JSON.stringify(updated))
 
     setAttendances(updated.length)
-    toast.success(`✅ ${course.name} 출석 확인: ${attendanceRecord.time}`)
+    toast.success(`${statusMessage} ${course.name} 확인: ${currentTime}`)
   }
 
   const handleDropout = () => {
@@ -164,16 +193,22 @@ export default function CoursePage() {
           <div className="bg-white rounded-lg shadow p-8">
             <h3 className="text-2xl font-bold text-gray-900 mb-6">📊 출석 현황</h3>
             <div className="space-y-3">
-              <div className="flex items-center justify-between bg-green-50 p-3 rounded-lg">
-                <span className="font-medium">총 출석 횟수</span>
+              <div className="flex items-center justify-between bg-green-50 p-3 rounded-lg border border-green-200">
+                <span className="font-medium">✅ 총 출석</span>
                 <span className="bg-green-200 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {attendances}회
+                  {attendances - lateCount}회
                 </span>
               </div>
-              <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
-                <span className="font-medium">상태</span>
+              <div className="flex items-center justify-between bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                <span className="font-medium">⏰ 지각 횟수</span>
+                <span className="bg-yellow-200 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
+                  {lateCount}회
+                </span>
+              </div>
+              <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <span className="font-medium">📊 총 횟수</span>
                 <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                  수강 중
+                  {attendances}회
                 </span>
               </div>
             </div>
