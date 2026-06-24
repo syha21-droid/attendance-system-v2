@@ -197,7 +197,7 @@ export default function AdminPage() {
                   type="text"
                   value={newCourseName}
                   onChange={(e) => setNewCourseName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 font-semibold placeholder-gray-600"
                   placeholder="예: JavaScript 기초"
                 />
               </div>
@@ -209,7 +209,7 @@ export default function AdminPage() {
                   type="text"
                   value={newCourseInstructor}
                   onChange={(e) => setNewCourseInstructor(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 font-semibold placeholder-gray-600"
                   placeholder="예: 홍길동"
                 />
               </div>
@@ -220,7 +220,7 @@ export default function AdminPage() {
                 <select
                   value={newCourseType}
                   onChange={(e) => setNewCourseType(e.target.value as 'session' | 'episode')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 font-semibold bg-white"
                 >
                   <option value="session">특강식 (회차 없음)</option>
                   <option value="episode">회차식 (MBA, 연속강의 등)</option>
@@ -235,7 +235,7 @@ export default function AdminPage() {
                     type="number"
                     value={newEpisodeCount}
                     onChange={(e) => setNewEpisodeCount(Number(e.target.value))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 font-semibold"
                     min="1"
                     max="50"
                   />

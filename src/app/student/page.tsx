@@ -150,7 +150,7 @@ export default function StudentPage() {
 
           {showForm && (
             <div className="bg-blue-50 p-6 rounded-lg mb-6 border border-blue-200">
-              <label className="block text-sm font-medium text-gray-700 mb-4">
+              <label className="block text-lg font-bold text-gray-900 mb-4">
                 📚 강의를 선택하세요
               </label>
               {courses && courses.length > 0 ? (
@@ -165,13 +165,13 @@ export default function StudentPage() {
                           : 'bg-white border-gray-300 text-gray-900 hover:bg-blue-50'
                       }`}
                     >
-                      <p className="font-semibold">{course.name}</p>
-                      <p className="text-sm">👨‍🏫 {course.instructor}</p>
+                      <p className="font-bold text-lg">{course.name}</p>
+                      <p className="text-base font-semibold">👨‍🏫 {course.instructor}</p>
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-4">등록된 강의가 없습니다</p>
+                <p className="text-gray-500 text-center py-4 font-semibold">등록된 강의가 없습니다</p>
               )}
               <button
                 onClick={handleEnroll}
