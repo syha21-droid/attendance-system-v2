@@ -57,7 +57,6 @@ export default function CourseDetailPage() {
   const [codeGeneratedTime, setCodeGeneratedTime] = useState<string | null>(null)
   const [activeExitCode, setActiveExitCode] = useState<string | null>(null)
   const [exitCodeGeneratedTime, setExitCodeGeneratedTime] = useState<string | null>(null)
-  const [studentStatus, setStudentStatus] = useState<Map<string, { name: string; status: 'entered' | 'progress' | 'exited' | 'none'; enterTime?: string; exitTime?: string }>>(new Map())
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -344,7 +343,6 @@ export default function CourseDetailPage() {
     }))
 
     toast.success(`✅ 퇴장 코드 생성됨: ${newCode}\n(5분 유효)`)
-  }
   }
 
   const handleSaveSchedule = () => {
