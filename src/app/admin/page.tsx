@@ -18,6 +18,8 @@ export default function AdminPage() {
   const [newCourseInstructor, setNewCourseInstructor] = useState('')
   const [newCourseType, setNewCourseType] = useState<'session' | 'episode'>('session')
   const [newEpisodeCount, setNewEpisodeCount] = useState(9)
+  const [studentCount, setStudentCount] = useState(0)
+  const [avgAttendanceRate, setAvgAttendanceRate] = useState(0)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -46,7 +48,52 @@ export default function AdminPage() {
       setCourses(defaultCourses)
       localStorage.setItem('courses', JSON.stringify(defaultCourses))
     }
+
+    loadStats()
   }, [router, setUser])
+
+  const loadStats = () => {
+    // 회원가입한 학생 수 집계 (users 비관리자 + students + 출석기록)
+    const studentIds = new Set<string>()
+
+    const usersData = localStorage.getItem('users')
+    if (usersData) {
+      JSON.parse(usersData).forEach((u: any) => {
+        if (!u.isAdmin) studentIds.add(u.id)
+      })
+    }
+
+    const studentsData = localStorage.getItem('students')
+    if (studentsData) {
+      JSON.parse(studentsData).forEach((s: any) => studentIds.add(s.id))
+    }
+
+    const allKeys = Object.keys(localStorage)
+    allKeys.forEach((key) => {
+      if (key.startsWith('attendance_')) {
+        const parts = key.split('_')
+        if (parts.length >= 3) {
+          studentIds.add(parts.slice(1, -1).join('_'))
+        }
+      }
+    })
+
+    setStudentCount(studentIds.size)
+
+    // 평균 출석률 집계
+    let totalPresent = 0
+    let totalRecords = 0
+    allKeys.forEach((key) => {
+      if (key.startsWith('attendance_')) {
+        const data = JSON.parse(localStorage.getItem(key) || '[]')
+        data.forEach((r: any) => {
+          totalRecords += 1
+          if (r.status === 'present' || r.status === 'late') totalPresent += 1
+        })
+      }
+    })
+    setAvgAttendanceRate(totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 0)
+  }
 
   const handleAddCourse = () => {
     if (!newCourseName || !newCourseInstructor) {
@@ -162,15 +209,18 @@ export default function AdminPage() {
             <p className="text-gray-600 text-sm">등록된 강의</p>
             <p className="text-3xl font-bold text-blue-600">{courses.length}</p>
           </div>
-          <div className="bg-green-50 rounded-lg p-6 border border-green-200">
+          <button
+            onClick={() => router.push('/admin/students')}
+            className="bg-green-50 rounded-lg p-6 border border-green-200 text-left hover:shadow-lg transition cursor-pointer"
+          >
             <Users className="w-8 h-8 text-green-600 mb-2" />
-            <p className="text-gray-600 text-sm">학생 수</p>
-            <p className="text-3xl font-bold text-green-600">0</p>
-          </div>
+            <p className="text-gray-600 text-sm">회원가입 학생 수</p>
+            <p className="text-3xl font-bold text-green-600">{studentCount}</p>
+          </button>
           <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
             <BarChart3 className="w-8 h-8 text-purple-600 mb-2" />
             <p className="text-gray-600 text-sm">평균 출석률</p>
-            <p className="text-3xl font-bold text-purple-600">0%</p>
+            <p className="text-3xl font-bold text-purple-600">{avgAttendanceRate}%</p>
           </div>
         </div>
 
@@ -294,8 +344,8 @@ export default function AdminPage() {
               <p className="text-sm text-blue-700">학생별 출석 현황을 조회합니다</p>
             </button>
             <button onClick={() => router.push('/admin/students')} className="p-4 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition text-left cursor-pointer">
-              <p className="font-semibold text-green-900">👥 학생 관리</p>
-              <p className="text-sm text-green-700">학생 목록을 조회합니다</p>
+              <p className="font-semibold text-green-900">👥 학생 관리 / 수강 변경</p>
+              <p className="text-sm text-green-700">학생 조회 및 잘못 신청한 수강 변경</p>
             </button>
             <button onClick={() => router.push('/admin/late')} className="p-4 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition text-left cursor-pointer">
               <p className="font-semibold text-yellow-900">⏰ 지각 관리</p>
