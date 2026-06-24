@@ -28,6 +28,8 @@ export default function CoursePage() {
   const [selectedStatus, setSelectedStatus] = useState<'present' | 'late' | 'absent' | 'excused' | null>(null)
   const [isConfirmingAttendance, setIsConfirmingAttendance] = useState(false)
   const [selectedEpisode, setSelectedEpisode] = useState(1)
+  const [isAttended, setIsAttended] = useState(false) // 입장 여부
+  const [attendanceStartTime, setAttendanceStartTime] = useState<string | null>(null) // 입장 시간
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -190,26 +192,63 @@ export default function CoursePage() {
     const currentTime = now.toLocaleTimeString('ko-KR')
     const status = getStatusForTime(currentTime)
 
+    // 입장 시간 저장
+    setIsAttended(true)
+    setAttendanceStartTime(currentTime)
+
     const attendanceRecord = {
       date: todayDate,
-      time: currentTime,
+      enterTime: currentTime,
       status: status,
       class: currentClass.name,
       reason: selectedStatus === 'excused' ? absenceReason : undefined,
     }
 
+    // 세션 저장 (임시)
+    sessionStorage.setItem(`attending_${user.id}_${courseId}`, JSON.stringify(attendanceRecord))
+
+    setSelectedStatus(null)
+    setAbsenceReason('')
+    setIsConfirmingAttendance(false)
+
+    const statusMessage = status === 'present' ? '✅ 입장' : status === 'late' ? '⏰ 입장(지각)' : '⚠️ 입장(결석)'
+    toast.success(`${statusMessage} ${course.name} ${currentClass.name}: ${currentTime}`)
+  }
+
+  const handleExit = () => {
+    if (!user || !isAttended) {
+      toast.error('입장하지 않았습니다')
+      return
+    }
+
+    const now = new Date()
+    const exitTime = now.toLocaleTimeString('ko-KR')
+
+    // 세션에서 입장 정보 가져오기
+    const attendingData = sessionStorage.getItem(`attending_${user.id}_${courseId}`)
+    if (!attendingData) {
+      toast.error('입장 정보를 찾을 수 없습니다')
+      return
+    }
+
+    const attendanceRecord = JSON.parse(attendingData)
+    attendanceRecord.exitTime = exitTime
+
+    // 최종 출석 기록 저장
     const attendanceKey = `attendance_${user.id}_${courseId}`
     const saved = localStorage.getItem(attendanceKey)
     const updated = saved ? [...JSON.parse(saved), attendanceRecord] : [attendanceRecord]
     localStorage.setItem(attendanceKey, JSON.stringify(updated))
 
-    loadAttendanceData(user.id)
-    setSelectedStatus(null)
-    setAbsenceReason('')
-    setIsConfirmingAttendance(false)
+    // 세션 정리
+    sessionStorage.removeItem(`attending_${user.id}_${courseId}`)
 
-    const statusMessage = status === 'present' ? '✅ 출석' : status === 'late' ? '⏰ 지각' : '❌ 결석'
-    toast.success(`${statusMessage} ${course.name} ${currentClass.name}: ${currentTime}`)
+    // 상태 초기화
+    setIsAttended(false)
+    setAttendanceStartTime(null)
+    loadAttendanceData(user.id)
+
+    toast.success(`🚪 퇴장 완료!\n${attendanceRecord.class} (${attendanceRecord.enterTime} ~ ${exitTime})`)
   }
 
   const handleExcuse = () => {
@@ -420,71 +459,86 @@ export default function CoursePage() {
             {currentClass ? (
               <>
                 <p className="text-gray-600 mb-4">현재 시간: {currentClass.name}</p>
-                {!isConfirmingAttendance ? (
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => {
-                        setSelectedStatus('present')
-                        setIsConfirmingAttendance(true)
-                      }}
-                      className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700"
-                    >
-                      ✅ 출석 확인
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedStatus('excused')
-                        setIsConfirmingAttendance(true)
-                      }}
-                      className="w-full bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700"
-                    >
-                      🏥 공가 신청
-                    </button>
-                  </div>
-                ) : selectedStatus === 'excused' ? (
-                  <div className="space-y-3">
-                    <textarea
-                      value={absenceReason}
-                      onChange={(e) => setAbsenceReason(e.target.value)}
-                      placeholder="공가 사유를 입력하세요 (예: 병원 방문, 개인사정 등)"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
-                      rows={3}
-                    />
-                    <div className="flex gap-2">
+
+                {!isAttended ? (
+                  // 입장 전: 출석 확인 버튼
+                  !isConfirmingAttendance ? (
+                    <div className="space-y-3">
                       <button
-                        onClick={handleExcuse}
-                        className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700"
+                        onClick={() => {
+                          setSelectedStatus('present')
+                          setIsConfirmingAttendance(true)
+                        }}
+                        className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 transition"
                       >
-                        확인
+                        ✅ 입장
                       </button>
                       <button
                         onClick={() => {
-                          setSelectedStatus(null)
-                          setAbsenceReason('')
-                          setIsConfirmingAttendance(false)
+                          setSelectedStatus('excused')
+                          setIsConfirmingAttendance(true)
                         }}
-                        className="flex-1 bg-gray-400 text-white py-2 rounded-lg font-medium hover:bg-gray-500"
+                        className="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-green-700 transition"
+                      >
+                        🏥 공가 신청
+                      </button>
+                    </div>
+                  ) : selectedStatus === 'excused' ? (
+                    <div className="space-y-3">
+                      <textarea
+                        value={absenceReason}
+                        onChange={(e) => setAbsenceReason(e.target.value)}
+                        placeholder="공가 사유를 입력하세요 (예: 병원 방문, 개인사정 등)"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none text-gray-900 font-semibold"
+                        rows={3}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleExcuse}
+                          className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700"
+                        >
+                          확인
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsConfirmingAttendance(false)
+                            setSelectedStatus(null)
+                          }}
+                          className="flex-1 bg-gray-600 text-white py-2 rounded-lg font-medium hover:bg-gray-700"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <button
+                        onClick={handleAttendance}
+                        className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700"
+                      >
+                        ✅ 입장 확인
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsConfirmingAttendance(false)
+                          setSelectedStatus(null)
+                        }}
+                        className="w-full bg-gray-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-gray-700"
                       >
                         취소
                       </button>
                     </div>
-                  </div>
+                  )
                 ) : (
-                  <div className="space-y-3">
+                  // 입장 후: 퇴장 버튼
+                  <div className="space-y-3 bg-green-100 border-2 border-green-400 p-4 rounded-lg">
+                    <p className="text-green-900 font-bold text-lg">✅ 수강 중...</p>
+                    <p className="text-sm text-green-800">입장 시간: {attendanceStartTime}</p>
                     <button
-                      onClick={handleAttendance}
-                      className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
+                      onClick={handleExit}
+                      className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-red-700 transition"
                     >
-                      확인
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedStatus(null)
-                        setIsConfirmingAttendance(false)
-                      }}
-                      className="w-full bg-gray-400 text-white py-2 rounded-lg font-medium hover:bg-gray-500"
-                    >
-                      취소
+                      🚪 퇴장
                     </button>
                   </div>
                 )}
