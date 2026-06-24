@@ -170,14 +170,18 @@ export default function AdminPage() {
                 courses.map((course) => (
                   <div
                     key={course.id}
-                    className="flex items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-lg transition"
+                    className="flex items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-lg transition cursor-pointer"
+                    onClick={() => router.push(`/admin/course/${course.id}`)}
                   >
                     <div>
                       <p className="font-semibold text-gray-900">{course.name}</p>
                       <p className="text-sm text-gray-600">👨‍🏫 {course.instructor}</p>
                     </div>
                     <button
-                      onClick={() => handleDeleteCourse(course.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteCourse(course.id)
+                      }}
                       className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition font-medium text-sm"
                     >
                       삭제
