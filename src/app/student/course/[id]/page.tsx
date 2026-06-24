@@ -251,6 +251,28 @@ export default function CoursePage() {
     }
 
     const attendanceRecord = JSON.parse(attendingData)
+
+    // ⚠️ 강의 종료 1분 전에 하면 출석 취소
+    if (currentClass) {
+      const now = new Date()
+      const currentMinutes = now.getHours() * 60 + now.getMinutes()
+
+      const [endHour, endMin] = currentClass.endTime.split(':').map(Number)
+      const endMinutes = endHour * 60 + endMin
+      const lastMinute = endMinutes - 1
+
+      if (currentMinutes >= lastMinute) {
+        // 1분 이내에 퇴장 시도 → 출석 기록 취소
+        toast.error('❌ 너무 늦게 퇴장했습니다.\n출석 기록이 취소됩니다.')
+
+        // 세션 정리만 함 (기록 저장 안 함)
+        sessionStorage.removeItem(`attending_${user.id}_${courseId}`)
+        setIsAttended(false)
+        setAttendanceStartTime(null)
+        return
+      }
+    }
+
     attendanceRecord.exitTime = exitTime
 
     // 최종 출석 기록 저장
@@ -267,7 +289,7 @@ export default function CoursePage() {
     setAttendanceStartTime(null)
     loadAttendanceData(user.id)
 
-    toast.success(`🚪 퇴장 완료!\n${attendanceRecord.class} (${attendanceRecord.enterTime} ~ ${exitTime})`)
+    toast.success(`✅ 퇴장 완료!\n${attendanceRecord.class} (${attendanceRecord.enterTime} ~ ${exitTime})`)
   }
 
   const handleExcuse = () => {
@@ -549,13 +571,16 @@ export default function CoursePage() {
                     </div>
                   )
                 ) : (
-                  // 입장 후: 퇴장 버튼
-                  <div className="space-y-3 bg-green-100 border-2 border-green-400 p-4 rounded-lg">
-                    <p className="text-green-900 font-bold text-lg">✅ 수강 중...</p>
-                    <p className="text-sm text-green-800">입장 시간: {attendanceStartTime}</p>
+                  // 입장 후: 강의 진행 중
+                  <div className="space-y-3 bg-blue-100 border-2 border-blue-400 p-4 rounded-lg">
+                    <p className="text-blue-900 font-bold text-lg">📚 강의 진행 중...</p>
+                    <p className="text-sm text-blue-800">입장 시간: {attendanceStartTime}</p>
                     {canExit() ? (
                       <>
-                        <p className="text-green-700 font-bold text-base">🎉 퇴장 가능!</p>
+                        <div className="bg-red-100 border-2 border-red-400 p-3 rounded-lg mb-2">
+                          <p className="text-red-700 font-bold text-base">⚠️ 중요 공지</p>
+                          <p className="text-sm text-red-700 mt-1">강의 종료 1분 이내에 퇴장하면<br/>출석 기록이 취소됩니다!</p>
+                        </div>
                         <button
                           onClick={handleExit}
                           className="w-full bg-red-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-red-700 transition"
@@ -564,12 +589,9 @@ export default function CoursePage() {
                         </button>
                       </>
                     ) : (
-                      <button
-                        disabled
-                        className="w-full bg-gray-400 text-white py-4 rounded-lg font-bold text-lg cursor-not-allowed opacity-50"
-                      >
-                        🚪 퇴장 (강의 진행 중)
-                      </button>
+                      <p className="text-blue-700 text-sm font-semibold text-center">
+                        강의에 집중해주세요.
+                      </p>
                     )}
                   </div>
                 )}
