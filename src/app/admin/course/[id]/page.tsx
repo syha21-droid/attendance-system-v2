@@ -35,6 +35,7 @@ export default function CourseDetailPage() {
   const [students, setStudents] = useState<StudentAttendance[]>([])
   const [newMaterialName, setNewMaterialName] = useState('')
   const [loading, setLoading] = useState(true)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -74,16 +75,16 @@ export default function CourseDetailPage() {
 
   const loadStudents = async (cId: string) => {
     try {
-      if (!supabase) return
+      const studentsMap = new Map<string, any>()
 
-      const { data: usersData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('role', 'student')
+      if (supabase) {
+        const { data: usersData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('role', 'student')
 
-      if (usersData && usersData.length > 0) {
-        const studentsWithAttendance = await Promise.all(
-          usersData.map(async (user: any) => {
+        if (usersData && usersData.length > 0) {
+          for (const user of usersData) {
             const { data: attendanceData } = await supabase!
               .from('attendances')
               .select('*')
@@ -97,17 +98,40 @@ export default function CourseDetailPage() {
               (a: any) => a.status === 'late'
             ).length || 0
 
-            return {
-              id: user.id,
-              name: user.name,
-              email: user.email,
+            if (attendanceCount + lateCount > 0) {
+              studentsMap.set(user.id, {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                attendanceCount,
+                lateCount,
+              })
+            }
+          }
+        }
+      }
+
+      const allKeys = Object.keys(localStorage)
+      for (const key of allKeys) {
+        if (key.startsWith(`attendance_`) && key.includes(`_${cId}`)) {
+          const [, userId] = key.match(/attendance_(.+?)_${cId}/) || []
+          if (userId && !studentsMap.has(userId)) {
+            const data = JSON.parse(localStorage.getItem(key) || '[]')
+            const attendanceCount = data.filter((r: any) => r.status === 'present').length
+            const lateCount = data.filter((r: any) => r.status === 'late').length
+
+            studentsMap.set(userId, {
+              id: userId,
+              name: `학생 ${userId.substring(0, 8)}`,
+              email: `student_${userId.substring(0, 8)}@example.com`,
               attendanceCount,
               lateCount,
-            }
-          })
-        )
-        setStudents(studentsWithAttendance.filter((s) => s.attendanceCount + s.lateCount > 0))
+            })
+          }
+        }
       }
+
+      setStudents(Array.from(studentsMap.values()))
     } catch (error) {
       console.error('Error loading students:', error)
       setStudents([])
@@ -115,17 +139,19 @@ export default function CourseDetailPage() {
   }
 
   const handleAddMaterial = () => {
-    if (!newMaterialName.trim()) {
-      toast.error('강의 자료명을 입력하세요')
+    if (!selectedFile) {
+      toast.error('파일을 선택하세요')
       return
     }
 
     if (!course) return
 
+    const fileSizeInMB = (selectedFile.size / (1024 * 1024)).toFixed(2)
+
     const newMaterial: CourseMaterial = {
       id: Math.random().toString(36).substr(2, 9),
-      name: newMaterialName,
-      size: '2.5MB',
+      name: selectedFile.name,
+      size: `${fileSizeInMB}MB`,
       uploadedAt: new Date().toLocaleDateString('ko-KR'),
     }
 
@@ -135,6 +161,7 @@ export default function CourseDetailPage() {
     setMaterials(updated)
     toast.success('✅ 강의 자료가 추가되었습니다')
     setNewMaterialName('')
+    setSelectedFile(null)
   }
 
   const handleDeleteMaterial = (id: string) => {
@@ -221,22 +248,24 @@ export default function CourseDetailPage() {
               <div className="space-y-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    자료명
+                    📁 파일 선택
                   </label>
                   <input
-                    type="text"
-                    value={newMaterialName}
-                    onChange={(e) => setNewMaterialName(e.target.value)}
-                    placeholder="예: 1주차 강의 슬라이드"
+                    type="file"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
+                  {selectedFile && (
+                    <p className="text-sm text-gray-600 mt-2">선택됨: {selectedFile.name}</p>
+                  )}
                 </div>
                 <button
                   onClick={handleAddMaterial}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition disabled:opacity-50"
+                  disabled={!selectedFile}
                 >
                   <Upload className="w-4 h-4" />
-                  자료 추가
+                  파일 업로드
                 </button>
               </div>
 
