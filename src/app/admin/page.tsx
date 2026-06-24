@@ -36,9 +36,9 @@ export default function AdminPage() {
       setCourses(JSON.parse(savedCourses))
     } else {
       const defaultCourses = [
-        { id: '1', name: 'Python 기초', instructor: '김교수' },
-        { id: '2', name: '웹개발', instructor: '이교수' },
-        { id: '3', name: '데이터분석', instructor: '박교수' },
+        { id: '1', name: 'Python 기초', instructor: '김교수', createdAt: new Date().toISOString() },
+        { id: '2', name: '웹개발', instructor: '이교수', createdAt: new Date().toISOString() },
+        { id: '3', name: '데이터분석', instructor: '박교수', createdAt: new Date().toISOString() },
       ]
       setCourses(defaultCourses)
       localStorage.setItem('courses', JSON.stringify(defaultCourses))
