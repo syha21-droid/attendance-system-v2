@@ -38,20 +38,27 @@ export default function SignUp() {
       id: userId,
       email: formData.email,
       name: formData.name,
+      password: formData.password, // 로그인 검증용
       isAdmin: formData.isAdmin,
     }
 
-    localStorage.setItem('user', JSON.stringify(user))
-    setUser(user)
+    // 회원가입된 사용자 정보 저장
+    const usersStr = localStorage.getItem('users')
+    const users = usersStr ? JSON.parse(usersStr) : []
+    users.push(user)
+    localStorage.setItem('users', JSON.stringify(users))
 
-    // 학생이 아닌 경우만 회원가입 (관리자는 제외)
+    // 사용자 로그인 상태 저장
+    const { password: _, ...userWithoutPassword } = user
+    localStorage.setItem('user', JSON.stringify(userWithoutPassword))
+    setUser(userWithoutPassword as any)
+
+    // 학생이 아닌 경우만 학생 목록에 추가
     if (!formData.isAdmin) {
-      // 기존 학생 목록에서 이 사용자가 이미 있는지 확인
       const studentsKey = 'students'
       const existingStudents = localStorage.getItem(studentsKey)
       const students = existingStudents ? JSON.parse(existingStudents) : []
 
-      // 중복 확인
       const isDuplicate = students.some((s: any) => s.id === userId)
       if (!isDuplicate) {
         students.push({

@@ -25,27 +25,14 @@ export default function Login() {
     }
 
     setTimeout(() => {
-      const testUsers = [
-        {
-          id: '1',
-          email: 'student@test.com',
-          password: '123456',
-          name: '학생',
-          isAdmin: false,
-        },
-        {
-          id: '2',
-          email: 'admin@test.com',
-          password: '123456',
-          name: '관리자',
-          isAdmin: true,
-        },
-      ]
+      // 회원가입된 사용자 정보에서 조회
+      const usersStr = localStorage.getItem('users')
+      const users = usersStr ? JSON.parse(usersStr) : []
 
-      const user = testUsers.find((u) => u.email === email && u.password === password)
+      const user = users.find((u: any) => u.email === email && u.password === password)
 
       if (user) {
-        const { password, ...userWithoutPassword } = user
+        const { password: _, ...userWithoutPassword } = user
         localStorage.setItem('user', JSON.stringify(userWithoutPassword))
         setUser(userWithoutPassword as any)
         toast.success('✅ 로그인 성공!')
@@ -109,22 +96,6 @@ export default function Login() {
             {loading ? '로그인 중...' : '로그인'}
           </button>
         </form>
-
-        <div className="mt-6 pt-6 border-t">
-          <p className="text-base font-bold text-gray-900 mb-3">📝 테스트 계정:</p>
-          <div className="bg-blue-50 p-4 rounded-lg text-sm space-y-3 border border-blue-200">
-            <div>
-              <p className="font-bold text-gray-900">👨‍🎓 학생</p>
-              <p className="text-gray-700 font-semibold">student@test.com</p>
-              <p className="text-gray-700 font-semibold">123456</p>
-            </div>
-            <div className="pt-3 border-t border-blue-200">
-              <p className="font-bold text-gray-900">👨‍💼 관리자</p>
-              <p className="text-gray-700 font-semibold">admin@test.com</p>
-              <p className="text-gray-700 font-semibold">123456</p>
-            </div>
-          </div>
-        </div>
 
         <p className="text-center text-gray-600 mt-6">
           계정이 없으신가요?{' '}
