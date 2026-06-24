@@ -174,6 +174,17 @@ export default function CoursePage() {
       return
     }
 
+    // ✅ 강의 수강 여부 확인 (출석 권한 체크)
+    const enrolledKey = `enrolled_${user.id}`
+    const enrolledData = localStorage.getItem(enrolledKey)
+    const enrolledCourses = enrolledData ? JSON.parse(enrolledData) : []
+    const isEnrolled = enrolledCourses.some((c: any) => c.id === courseId)
+
+    if (!isEnrolled) {
+      toast.error('❌ 이 강의에 등록되지 않았습니다. 먼저 강의에 등록해주세요.')
+      return
+    }
+
     const now = new Date()
     const todayDate = now.toLocaleDateString('ko-KR')
     const currentTime = now.toLocaleTimeString('ko-KR')

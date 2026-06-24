@@ -88,6 +88,19 @@ function AttendContent() {
 
     const user = JSON.parse(savedUser)
 
+    // ✅ 강의 수강 여부 확인 (출석 권한 체크)
+    const enrolledKey = `enrolled_${user.id}`
+    const enrolledData = localStorage.getItem(enrolledKey)
+    const enrolledCourses = enrolledData ? JSON.parse(enrolledData) : []
+    const isEnrolled = enrolledCourses.some((c: any) => c.id === courseId)
+
+    if (!isEnrolled) {
+      setStatus('error')
+      setMessage('❌ 이 강의에 등록되지 않았습니다.\n먼저 강의에 등록해주세요.')
+      setTimeout(() => router.push(`/student/course/${courseId}`), 3000)
+      return
+    }
+
     // 출석 등록
     const now2 = new Date()
     const todayDate = now2.toLocaleDateString('ko-KR')
