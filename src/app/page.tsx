@@ -10,6 +10,20 @@ export default function Home() {
   const user = useStore((state) => state.user)
 
   useEffect(() => {
+    // 테스트 계정 자동 생성 (처음 접속 시에만)
+    const testAccountsInitialized = localStorage.getItem('testAccountsInitialized')
+    if (!testAccountsInitialized) {
+      const testAccounts = [
+        { id: 'admin001', email: 'admin@test.com', password: 'admin123', name: '관리자', isAdmin: true },
+        { id: 'student001', email: 'student1@test.com', password: 'student123', name: '학생1', isAdmin: false },
+        { id: 'student002', email: 'student2@test.com', password: 'student123', name: '학생2', isAdmin: false },
+      ]
+      const existingUsers = JSON.parse(localStorage.getItem('users') || '[]')
+      const updatedUsers = [...existingUsers, ...testAccounts]
+      localStorage.setItem('users', JSON.stringify(updatedUsers))
+      localStorage.setItem('testAccountsInitialized', 'true')
+    }
+
     const savedUser = localStorage.getItem('user')
     if (savedUser) {
       const userData = JSON.parse(savedUser)
