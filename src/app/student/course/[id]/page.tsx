@@ -41,8 +41,12 @@ export default function CoursePage() {
   const [exitCodeInput, setExitCodeInput] = useState('') // 퇴장 코드 입력
   const [exitCodeVerified, setExitCodeVerified] = useState(false) // 퇴장 코드 검증
   const [isOnline] = useState<boolean>(false) // 항상 오프라인(강의실)
+  const [watchingMinutes, setWatchingMinutes] = useState(0) // 강의 시청/참여 시간
+  const [lastConfirmTime, setLastConfirmTime] = useState<Date | null>(null) // 마지막 확인 시간
+  const [needsReconfirm, setNeedsReconfirm] = useState(false) // 재확인 필요
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const confirmIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -236,6 +240,10 @@ export default function CoursePage() {
 
     const statusMessage = status === 'present' ? '✅ 입장' : status === 'late' ? '⏰ 입장(지각)' : '⚠️ 입장(결석)'
     toast.success(`${statusMessage} ${course.name} ${currentClass.name}: ${currentTime}`)
+
+    // 강의 진행 중 5분마다 재확인 시작
+    startPeriodicConfirm()
+    setLastConfirmTime(new Date())
   }
 
   const canExit = (): boolean => {
@@ -530,6 +538,7 @@ export default function CoursePage() {
         toast.error('❌ 너무 늦게 퇴장했습니다.\n출석 기록이 취소됩니다.')
 
         // 세션 정리만 함 (기록 저장 안 함)
+        stopPeriodicConfirm()
         sessionStorage.removeItem(`attending_${user.id}_${courseId}`)
         setIsAttended(false)
         setAttendanceStartTime(null)
@@ -550,18 +559,20 @@ export default function CoursePage() {
     localStorage.setItem(attendanceKey, JSON.stringify(updated))
 
     // 세션 정리
+    stopPeriodicConfirm()
     sessionStorage.removeItem(`attending_${user.id}_${courseId}`)
 
     // 상태 초기화
     setIsAttended(false)
     setAttendanceStartTime(null)
-    setIsOnline(null)
     setCodeVerified(false)
     setExitCodeVerified(false)
     setEnvironmentOk(false)
     setFaceDetected(false)
     setCodeInput('')
     setExitCodeInput('')
+    setWatchingMinutes(0)
+    setNeedsReconfirm(false)
     loadAttendanceData(user.id)
 
     toast.success(`✅ 퇴장 완료!\n${attendanceRecord.class} (${attendanceRecord.enterTime} ~ ${exitTime})`)
@@ -607,6 +618,47 @@ export default function CoursePage() {
     setIsConfirmingAttendance(false)
     toast.success(`🏥 공가 신청 완료!\n[${getCategoryLabel(absenceCategory!)}] ${absenceReason}`)
   }
+
+  const startPeriodicConfirm = () => {
+    // 5분(300초)마다 재확인
+    confirmIntervalRef.current = setInterval(() => {
+      setNeedsReconfirm(true)
+      toast.warning('🔍 강의 확인이 필요합니다!\n카메라로 재확인해주세요.')
+    }, 5 * 60 * 1000)
+  }
+
+  const stopPeriodicConfirm = () => {
+    if (confirmIntervalRef.current) {
+      clearInterval(confirmIntervalRef.current)
+      confirmIntervalRef.current = null
+    }
+  }
+
+  const handleReconfirm = () => {
+    // 재확인: 환경 확인 + 얼굴 인식
+    setEnvironmentOk(false)
+    setFaceDetected(false)
+    setNeedsReconfirm(false)
+    startCamera()
+  }
+
+  // 강의 진행 중 시간 경과 추적
+  useEffect(() => {
+    if (!isAttended) return
+
+    const interval = setInterval(() => {
+      setWatchingMinutes((prev) => prev + 1)
+    }, 60000) // 1분마다
+
+    return () => clearInterval(interval)
+  }, [isAttended])
+
+  // 강의 종료 시 정기 확인 중지
+  useEffect(() => {
+    return () => {
+      stopPeriodicConfirm()
+    }
+  }, [])
 
   const handleLogout = () => {
     localStorage.removeItem('user')
@@ -934,8 +986,29 @@ export default function CoursePage() {
                 ) : (
                   // 입장 후: 강의 진행 중
                   <div className="space-y-3 bg-blue-100 border-2 border-blue-400 p-4 rounded-lg">
-                    <p className="text-blue-900 font-bold text-lg">📚 강의 진행 중...</p>
-                    <p className="text-sm text-blue-800">입장 시간: {attendanceStartTime}</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-blue-900 font-bold text-lg">📚 강의 진행 중...</p>
+                        <p className="text-sm text-blue-800">입장 시간: {attendanceStartTime}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-blue-700">{watchingMinutes}</p>
+                        <p className="text-xs text-blue-600">분</p>
+                      </div>
+                    </div>
+
+                    {needsReconfirm && (
+                      <div className="bg-orange-200 border-2 border-orange-400 p-3 rounded-lg">
+                        <p className="text-orange-900 font-bold text-base mb-2">🔍 강의 확인 필요!</p>
+                        <p className="text-sm text-orange-800 mb-3">5분마다 재확인이 필요합니다</p>
+                        <button
+                          onClick={handleReconfirm}
+                          className="w-full bg-orange-600 text-white py-2 rounded-lg font-bold hover:bg-orange-700 transition"
+                        >
+                          📷 카메라로 재확인
+                        </button>
+                      </div>
+                    )}
 
                     {!codeVerified ? (
                       <div className="bg-yellow-50 border-2 border-yellow-300 p-3 rounded-lg">
