@@ -72,30 +72,30 @@ export default function Login() {
           로그인
         </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              이메일
+            <label className="block text-base font-bold text-gray-900 mb-2">
+              📧 이메일
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-semibold placeholder-gray-600"
               placeholder="example@email.com"
               disabled={loading}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              비밀번호
+            <label className="block text-base font-bold text-gray-900 mb-2">
+              🔒 비밀번호
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-semibold placeholder-gray-600"
               placeholder="비밀번호 입력"
               disabled={loading}
             />
@@ -111,17 +111,17 @@ export default function Login() {
         </form>
 
         <div className="mt-6 pt-6 border-t">
-          <p className="text-sm text-gray-600 mb-3">테스트 계정:</p>
-          <div className="bg-blue-50 p-3 rounded text-xs space-y-2">
+          <p className="text-base font-bold text-gray-900 mb-3">📝 테스트 계정:</p>
+          <div className="bg-blue-50 p-4 rounded-lg text-sm space-y-3 border border-blue-200">
             <div>
-              <p className="font-semibold">학생</p>
-              <p>student@test.com</p>
-              <p>123456</p>
+              <p className="font-bold text-gray-900">👨‍🎓 학생</p>
+              <p className="text-gray-700 font-semibold">student@test.com</p>
+              <p className="text-gray-700 font-semibold">123456</p>
             </div>
-            <div className="pt-2 border-t">
-              <p className="font-semibold">관리자</p>
-              <p>admin@test.com</p>
-              <p>123456</p>
+            <div className="pt-3 border-t border-blue-200">
+              <p className="font-bold text-gray-900">👨‍💼 관리자</p>
+              <p className="text-gray-700 font-semibold">admin@test.com</p>
+              <p className="text-gray-700 font-semibold">123456</p>
             </div>
           </div>
         </div>

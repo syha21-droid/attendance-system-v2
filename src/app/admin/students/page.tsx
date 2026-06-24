@@ -30,9 +30,16 @@ export default function StudentsPage() {
     try {
       const allStudents: StudentWithAttendance[] = []
       const allKeys = Object.keys(localStorage)
-      const userIds = new Set<string>()
 
-      // localStorage에서 모든 학생 ID 추출
+      // 회원가입된 학생 목록 로드
+      const registeredStudents: any[] = []
+      const studentsData = localStorage.getItem('students')
+      if (studentsData) {
+        registeredStudents.push(...JSON.parse(studentsData))
+      }
+
+      // 출석 기록에서 학생 ID 추출
+      const userIds = new Set<string>()
       allKeys.forEach((key) => {
         if (key.startsWith('attendance_')) {
           const parts = key.split('_')
@@ -60,17 +67,40 @@ export default function StudentsPage() {
           }
         })
 
+        // 회원가입 정보에서 이름과 이메일 찾기
+        const registeredStudent = registeredStudents.find((s: any) => s.id === userId)
+        const studentName = registeredStudent?.name || userId
+        const studentEmail = registeredStudent?.email || ''
+        const createdAt = registeredStudent?.createdAt || new Date().toISOString()
+
         allStudents.push({
           id: userId,
-          name: userId,
-          email: '',
+          name: studentName,
+          email: studentEmail,
           enrolledCourses: 0,
-          createdAt: new Date().toISOString(),
+          createdAt: createdAt,
           attendanceCount: totalAttendance,
           lateCount: totalLate,
           absentCount: totalAbsent,
           excusedCount: totalExcused,
         })
+      })
+
+      // 회원가입되었지만 아직 출석 기록이 없는 학생도 추가
+      registeredStudents.forEach((student: any) => {
+        if (!allStudents.find((s) => s.id === student.id)) {
+          allStudents.push({
+            id: student.id,
+            name: student.name,
+            email: student.email,
+            enrolledCourses: 0,
+            createdAt: student.createdAt,
+            attendanceCount: 0,
+            lateCount: 0,
+            absentCount: 0,
+            excusedCount: 0,
+          })
+        }
       })
 
       setStudents(allStudents)
@@ -103,35 +133,43 @@ export default function StudentsPage() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
+        <div className="bg-white rounded-lg shadow p-8 mb-8">
+          <p className="text-gray-600 text-base font-semibold mb-2">총 등록 학생 수</p>
+          <p className="text-5xl font-bold text-purple-600">{students.length}</p>
+        </div>
+
         <div className="bg-white rounded-lg shadow p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">등록된 학생 목록</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">📋 등록된 학생 목록</h2>
 
           {loading ? (
             <div className="text-center py-8">로딩 중...</div>
           ) : students.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">등록된 학생이 없습니다.</div>
+            <div className="text-center py-8 text-gray-500 text-lg font-semibold">등록된 학생이 없습니다.</div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {students.map((student, idx) => (
                 <div
                   key={student.id}
-                  className={`flex items-center justify-between p-4 rounded-lg border ${
+                  className={`flex items-center justify-between p-5 rounded-lg border-2 ${
                     idx % 3 === 0
-                      ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200'
+                      ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300'
                       : idx % 3 === 1
-                      ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200'
-                      : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
-                  }`}
+                      ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-300'
+                      : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
+                  } hover:shadow-lg transition`}
                 >
-                  <div>
-                    <p className="font-semibold text-gray-900">{student.name}</p>
-                    <p className="text-sm text-gray-600">📧 {student.email}</p>
+                  <div className="flex-1">
+                    <p className="font-bold text-lg text-gray-900">👤 {student.name}</p>
+                    <p className="text-base text-gray-700 font-semibold">📧 {student.email}</p>
+                    <p className="text-xs text-gray-500 mt-1">가입일: {new Date(student.createdAt).toLocaleDateString('ko-KR')}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium text-gray-600">
-                      ✅ 출석: {student.attendanceCount}회 | ⏰ 지각: {student.lateCount}회 | ❌ 결석: {student.absentCount}회 | 🏥 공가: {student.excusedCount}회
-                    </p>
-                    <p className="text-xs text-gray-500">가입: {new Date(student.createdAt).toLocaleDateString('ko-KR')}</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm font-semibold">
+                      <div className="bg-green-100 text-green-700 p-2 rounded">✅ {student.attendanceCount}회</div>
+                      <div className="bg-yellow-100 text-yellow-700 p-2 rounded">⏰ {student.lateCount}회</div>
+                      <div className="bg-red-100 text-red-700 p-2 rounded">❌ {student.absentCount}회</div>
+                      <div className="bg-blue-100 text-blue-700 p-2 rounded">🏥 {student.excusedCount}회</div>
+                    </div>
                   </div>
                 </div>
               ))}

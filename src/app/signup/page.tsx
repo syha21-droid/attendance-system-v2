@@ -33,8 +33,9 @@ export default function SignUp() {
       return
     }
 
+    const userId = Math.random().toString(36).substr(2, 9)
     const user = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: userId,
       email: formData.email,
       name: formData.name,
       isAdmin: formData.isAdmin,
@@ -42,6 +43,27 @@ export default function SignUp() {
 
     localStorage.setItem('user', JSON.stringify(user))
     setUser(user)
+
+    // 학생이 아닌 경우만 회원가입 (관리자는 제외)
+    if (!formData.isAdmin) {
+      // 기존 학생 목록에서 이 사용자가 이미 있는지 확인
+      const studentsKey = 'students'
+      const existingStudents = localStorage.getItem(studentsKey)
+      const students = existingStudents ? JSON.parse(existingStudents) : []
+
+      // 중복 확인
+      const isDuplicate = students.some((s: any) => s.id === userId)
+      if (!isDuplicate) {
+        students.push({
+          id: userId,
+          email: formData.email,
+          name: formData.name,
+          createdAt: new Date().toISOString(),
+        })
+        localStorage.setItem(studentsKey, JSON.stringify(students))
+      }
+    }
+
     toast.success('✅ 회원가입 완료!')
 
     setTimeout(() => {
@@ -60,60 +82,60 @@ export default function SignUp() {
           회원가입
         </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              이메일
+            <label className="block text-base font-bold text-gray-900 mb-2">
+              📧 이메일
             </label>
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 font-semibold placeholder-gray-600"
               placeholder="example@email.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              비밀번호
+            <label className="block text-base font-bold text-gray-900 mb-2">
+              🔒 비밀번호
             </label>
             <input
               type="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 font-semibold placeholder-gray-600"
               placeholder="비밀번호 입력"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              이름
+            <label className="block text-base font-bold text-gray-900 mb-2">
+              👤 이름
             </label>
             <input
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 font-semibold placeholder-gray-600"
               placeholder="홍길동"
             />
           </div>
 
-          <div className="flex items-center">
+          <div className="flex items-center bg-green-50 p-4 rounded-lg border border-green-200">
             <input
               type="checkbox"
               id="isAdmin"
               name="isAdmin"
               checked={formData.isAdmin}
               onChange={handleChange}
-              className="h-4 w-4 text-green-600 rounded"
+              className="h-5 w-5 text-green-600 rounded"
             />
-            <label htmlFor="isAdmin" className="ml-2 text-sm text-gray-700">
-              관리자로 가입
+            <label htmlFor="isAdmin" className="ml-3 text-base font-semibold text-gray-900">
+              👨‍💼 관리자로 가입
             </label>
           </div>
 
