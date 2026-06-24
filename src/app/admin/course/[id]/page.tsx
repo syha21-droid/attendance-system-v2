@@ -77,6 +77,29 @@ export default function CourseDetailPage() {
     try {
       const studentsMap = new Map<string, any>()
 
+      const allKeys = Object.keys(localStorage)
+      for (const key of allKeys) {
+        if (key.startsWith(`attendance_`) && key.endsWith(`_${cId}`)) {
+          const parts = key.split('_')
+          if (parts.length >= 3) {
+            const userId = parts.slice(1, -1).join('_')
+            if (!studentsMap.has(userId)) {
+              const data = JSON.parse(localStorage.getItem(key) || '[]')
+              const attendanceCount = data.filter((r: any) => r.status === 'present').length
+              const lateCount = data.filter((r: any) => r.status === 'late').length
+
+              studentsMap.set(userId, {
+                id: userId,
+                name: `학생 ${userId.substring(0, 8)}`,
+                email: `student_${userId.substring(0, 8)}@example.com`,
+                attendanceCount,
+                lateCount,
+              })
+            }
+          }
+        }
+      }
+
       if (supabase) {
         const { data: usersData } = await supabase
           .from('users')
@@ -107,26 +130,6 @@ export default function CourseDetailPage() {
                 lateCount,
               })
             }
-          }
-        }
-      }
-
-      const allKeys = Object.keys(localStorage)
-      for (const key of allKeys) {
-        if (key.startsWith(`attendance_`) && key.includes(`_${cId}`)) {
-          const [, userId] = key.match(/attendance_(.+?)_${cId}/) || []
-          if (userId && !studentsMap.has(userId)) {
-            const data = JSON.parse(localStorage.getItem(key) || '[]')
-            const attendanceCount = data.filter((r: any) => r.status === 'present').length
-            const lateCount = data.filter((r: any) => r.status === 'late').length
-
-            studentsMap.set(userId, {
-              id: userId,
-              name: `학생 ${userId.substring(0, 8)}`,
-              email: `student_${userId.substring(0, 8)}@example.com`,
-              attendanceCount,
-              lateCount,
-            })
           }
         }
       }
