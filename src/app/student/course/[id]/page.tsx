@@ -592,48 +592,10 @@ export default function CoursePage() {
     toast.success(`🏥 공가 신청 완료!\n[${getCategoryLabel(absenceCategory!)}] ${absenceReason}`)
   }
 
-  const autoConfirmEnvironment = async () => {
-    // 5분마다 자동으로 강의실 환경 확인
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-
-        // 2초 후 자동으로 사진 촬영
-        setTimeout(() => {
-          if (canvasRef.current && videoRef.current) {
-            const ctx = canvasRef.current.getContext('2d')
-            canvasRef.current.width = videoRef.current.videoWidth
-            canvasRef.current.height = videoRef.current.videoHeight
-            ctx?.drawImage(videoRef.current, 0, 0)
-
-            // 자동 환경 분석
-            const result = analyzeEnvironment(canvasRef.current)
-
-            if (result) {
-              setNeedsReconfirm(false)
-              // 성공: 조용히 처리
-            } else {
-              setNeedsReconfirm(true)
-              // 실패: 재확인 필요 표시
-            }
-          }
-
-          // 카메라 종료
-          const tracks = (videoRef.current?.srcObject as MediaStream)?.getTracks()
-          tracks?.forEach((track) => track.stop())
-        }, 2000)
-      }
-    } catch (error) {
-      setNeedsReconfirm(true)
-      // 카메라 접근 실패
-    }
-  }
-
   const startPeriodicConfirm = () => {
-    // 5분(300초)마다 자동으로 강의실 환경 확인
+    // 5분마다 재확인 필요 표시 (간단히)
     confirmIntervalRef.current = setInterval(() => {
-      autoConfirmEnvironment()
+      setNeedsReconfirm(true)
     }, 5 * 60 * 1000)
   }
 
@@ -996,29 +958,9 @@ export default function CoursePage() {
                 ) : (
                   // 입장 후: 강의 진행 중
                   <div className="space-y-3 bg-blue-100 border-2 border-blue-400 p-4 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-blue-900 font-bold text-lg">📚 강의 진행 중...</p>
-                        <p className="text-sm text-blue-800">입장 시간: {attendanceStartTime}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-blue-700">{watchingMinutes}</p>
-                        <p className="text-xs text-blue-600">분</p>
-                      </div>
-                    </div>
+                    <p className="text-blue-900 font-bold text-lg">📚 강의 진행 중...</p>
+                    <p className="text-sm text-blue-800">입장 시간: {attendanceStartTime}</p>
 
-                    {needsReconfirm && (
-                      <div className="bg-orange-200 border-2 border-orange-400 p-3 rounded-lg">
-                        <p className="text-orange-900 font-bold text-base mb-2">🔍 강의 확인 필요!</p>
-                        <p className="text-sm text-orange-800 mb-3">5분마다 재확인이 필요합니다</p>
-                        <button
-                          onClick={handleReconfirm}
-                          className="w-full bg-orange-600 text-white py-2 rounded-lg font-bold hover:bg-orange-700 transition"
-                        >
-                          📷 카메라로 재확인
-                        </button>
-                      </div>
-                    )}
 
                     {!codeVerified ? (
                       <div className="bg-yellow-50 border-2 border-yellow-300 p-3 rounded-lg">
