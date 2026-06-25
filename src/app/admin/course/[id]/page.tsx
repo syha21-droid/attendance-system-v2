@@ -402,8 +402,21 @@ export default function CourseDetailPage() {
     router.push('/login')
   }
 
-  if (loading || !course) {
+  if (loading) {
     return <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-blue-50 to-indigo-100"><div className="app-spinner" /><p className="text-gray-600 font-semibold">로딩 중...</p></div>
+  }
+
+  if (!course) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-blue-50 to-indigo-100 px-4 text-center">
+        <p className="text-5xl">🔍</p>
+        <p className="text-xl font-bold text-gray-900">강의를 찾을 수 없습니다</p>
+        <p className="text-gray-600 text-sm">이 브라우저에 해당 강의 정보가 없습니다.</p>
+        <button onClick={() => router.push('/admin')} className="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
+          ← 대시보드로 돌아가기
+        </button>
+      </div>
+    )
   }
 
   return (

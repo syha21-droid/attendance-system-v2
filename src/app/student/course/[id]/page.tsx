@@ -23,6 +23,7 @@ export default function CoursePage() {
   const setUser = useStore((state) => state.setUser)
 
   const [course, setCourse] = useState<Course | null>(null)
+  const [pageLoaded, setPageLoaded] = useState(false) // 초기 로드 완료 여부
   const [attendances, setAttendances] = useState(0)
   const [lateCount, setLateCount] = useState(0)
   const [absentCount, setAbsentCount] = useState(0)
@@ -82,7 +83,7 @@ export default function CoursePage() {
     if (savedCourses) {
       const courses = JSON.parse(savedCourses)
       const found = courses.find((c: Course) => c.id === courseId)
-      setCourse(found)
+      setCourse(found || null)
     }
 
     const materialsKey = `course_materials_${courseId}`
@@ -135,6 +136,7 @@ export default function CoursePage() {
     }
 
     loadAttendanceData(userData.id)
+    setPageLoaded(true)
   }, [courseId, router, setUser])
 
   // 서버 시간 동기화 (기기 시계 조작 방지)
@@ -918,8 +920,21 @@ export default function CoursePage() {
     }
   }
 
-  if (!course || !user) {
+  if (!pageLoaded || !user) {
     return <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-blue-50 to-indigo-100"><div className="app-spinner" /><p className="text-gray-600 font-semibold">로딩 중...</p></div>
+  }
+
+  if (!course) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-blue-50 to-indigo-100 px-4 text-center">
+        <p className="text-5xl">🔍</p>
+        <p className="text-xl font-bold text-gray-900">강의를 찾을 수 없습니다</p>
+        <p className="text-gray-600 text-sm">이 강의 정보가 없거나 삭제되었습니다.</p>
+        <button onClick={() => router.push('/student')} className="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
+          ← 내 강의로 돌아가기
+        </button>
+      </div>
+    )
   }
 
   return (
