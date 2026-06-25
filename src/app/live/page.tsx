@@ -47,6 +47,7 @@ function LiveInner() {
   const [distance, setDistance] = useState<number | null>(null)
   const [radius, setRadius] = useState<number | null>(null)
   const [endsAt, setEndsAt] = useState<string | null>(null)
+  const [marked, setMarked] = useState<{ lat: number; lng: number } | null>(null) // 내가 출석을 찍은 실제 위치
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const hbTimer = useRef<NodeJS.Timeout | null>(null)
@@ -89,6 +90,9 @@ function LiveInner() {
       if (typeof data.distance === 'number') setDistance(data.distance)
       if (typeof data.radius === 'number') setRadius(data.radius)
       if (data.endsAt) setEndsAt(data.endsAt)
+      if (typeof data.myLat === 'number' && typeof data.myLng === 'number') {
+        setMarked({ lat: data.myLat, lng: data.myLng })
+      }
       return data
     },
     [sessionId]
@@ -221,6 +225,7 @@ function LiveInner() {
                 {endTimeStr && `${endTimeStr} 종료 예정. `}현장을 벗어나면 출석이 인정되지 않습니다.
               </p>
             </div>
+            {marked && <MarkedLocation lat={marked.lat} lng={marked.lng} />}
           </>
         )}
 
@@ -232,6 +237,7 @@ function LiveInner() {
             <button onClick={recheck} disabled={busy} className="mt-4 w-full bg-indigo-600 text-white font-bold py-3 rounded-xl disabled:opacity-50">
               {busy ? '확인 중...' : '📍 위치 다시 확인'}
             </button>
+            {marked && <MarkedLocation lat={marked.lat} lng={marked.lng} />}
           </>
         )}
 
@@ -243,6 +249,7 @@ function LiveInner() {
             <button onClick={doCheckout} disabled={busy} className="mt-5 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl text-lg disabled:opacity-50">
               {busy ? '처리 중...' : '🚪 퇴장하기'}
             </button>
+            {marked && <MarkedLocation lat={marked.lat} lng={marked.lng} />}
           </>
         )}
 
@@ -251,6 +258,7 @@ function LiveInner() {
             <CheckCircle2 className="w-20 h-20 text-green-600 mx-auto mb-3" />
             <p className="text-2xl font-bold text-gray-900">출석 인정 완료!</p>
             <p className="text-sm text-gray-600 mt-2">끝까지 수강하셨습니다. 수고하셨어요 👏</p>
+            {marked && <MarkedLocation lat={marked.lat} lng={marked.lng} />}
             <button onClick={() => router.push('/student')} className="mt-4 bg-green-600 text-white font-bold py-2 px-6 rounded-lg">내 강의로</button>
           </>
         )}
@@ -281,6 +289,27 @@ function LiveInner() {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// 학생이 출석을 찍은 실제 위치 + 지도 링크
+function MarkedLocation({ lat, lng }: { lat: number; lng: number }) {
+  const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`
+  return (
+    <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mt-4 text-left">
+      <p className="text-xs font-bold text-indigo-800 flex items-center gap-1">
+        <MapPin className="w-3.5 h-3.5" /> 내가 출석한 위치
+      </p>
+      <p className="text-xs text-indigo-700 mt-1 font-mono">{lat.toFixed(5)}, {lng.toFixed(5)}</p>
+      <a
+        href={mapUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-block mt-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg"
+      >
+        🗺️ 지도에서 보기
+      </a>
     </div>
   )
 }

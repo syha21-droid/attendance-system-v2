@@ -31,9 +31,15 @@ create table if not exists attendance_records (
   last_seen_at timestamptz not null default now(),-- 마지막으로 현장에서 확인된 시각
   exit_at timestamptz,                            -- 현장 벗어난(퇴장) 시각
   entry_distance_m integer,
+  entry_lat double precision,                     -- 학생이 출석을 찍은 실제 위도
+  entry_lng double precision,                     -- 학생이 출석을 찍은 실제 경도
   status text not null default 'present',         -- present(현장) | left(퇴장)
   unique (session_id, user_id)                    -- 1계정 1기록 (재입장 시 갱신)
 );
+
+-- 이미 테이블을 만든 운영 DB라면(좌표 컬럼이 없을 때) 아래 두 줄을 실행해 마이그레이션
+alter table attendance_records add column if not exists entry_lat double precision;
+alter table attendance_records add column if not exists entry_lng double precision;
 
 alter table attendance_sessions enable row level security;
 alter table attendance_records enable row level security;

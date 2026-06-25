@@ -290,7 +290,18 @@ export default function AdminLivePage() {
                           <span className="font-semibold text-gray-900">{lb.dot} {r.user_name || r.user_id}</span>
                           <p className="text-xs text-gray-500">
                             입장 {fmt(r.entry_at)}{r.exit_at ? ` · 퇴장 ${fmt(r.exit_at)}` : ''}
+                            {r.entry_distance_m != null ? ` · 약 ${r.entry_distance_m}m` : ''}
                           </p>
+                          {r.entry_lat != null && r.entry_lng != null && (
+                            <a
+                              href={`https://www.google.com/maps?q=${r.entry_lat},${r.entry_lng}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline font-medium"
+                            >
+                              🗺️ 찍은 위치 보기
+                            </a>
+                          )}
                         </div>
                         <span className={`text-xs font-bold ${lb.cls}`}>{lb.text}</span>
                       </div>

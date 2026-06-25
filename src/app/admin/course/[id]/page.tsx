@@ -17,6 +17,17 @@ interface CourseMaterial {
   uploadedAt: string
 }
 
+interface LocationInfo {
+  distance: number | null
+  myLat: number | null
+  myLng: number | null
+  venueLat: number | null
+  venueLng: number | null
+  entryAt: string
+  exitAt: string | null
+  final: string
+}
+
 interface StudentAttendance {
   id: string
   name: string
@@ -25,6 +36,15 @@ interface StudentAttendance {
   lateCount: number
   absentCount: number
   excusedCount: number
+  location?: LocationInfo
+}
+
+// 위치 출석 최종 상태 라벨
+function locStatusLabel(final: string): { text: string; cls: string } {
+  if (final === 'accepted') return { text: '🟢 인정', cls: 'text-green-700' }
+  if (final === 'present') return { text: '🔵 현장', cls: 'text-blue-700' }
+  if (final === 'left') return { text: '🟠 이탈', cls: 'text-orange-700' }
+  return { text: '🔴 미인정', cls: 'text-red-700' }
 }
 
 export default function CourseDetailPage() {
@@ -200,6 +220,35 @@ export default function CourseDetailPage() {
           s.absentCount = data.filter((r: any) => r.status === 'absent').length
           s.excusedCount = data.filter((r: any) => r.status === 'excused').length
         }
+      }
+
+      // 3. 위치 기반 출석(Supabase) → 위치 정보 + 위치 출석만 한 학생 추가
+      try {
+        const res = await fetch(`/api/live/course-records?courseId=${cId}`, { cache: 'no-store' })
+        if (res.ok) {
+          const { records } = await res.json()
+          for (const r of records || []) {
+            const s = ensure(r.userId)
+            if (r.userName && (!s.name || s.name.startsWith('학생 '))) s.name = r.userName
+            // 가장 최근 위치 출석만 표시 (records는 최신순)
+            if (!s.location) {
+              s.location = {
+                distance: r.distance,
+                myLat: r.myLat,
+                myLng: r.myLng,
+                venueLat: r.venueLat,
+                venueLng: r.venueLng,
+                entryAt: r.entryAt,
+                exitAt: r.exitAt,
+                final: r.final,
+              }
+              // 위치 출석 인정 시 출석 카운트에도 반영
+              if (r.final === 'accepted' || r.final === 'present') s.attendanceCount += 1
+            }
+          }
+        }
+      } catch {
+        // 위치 출석 미설정/오류여도 명단은 그대로
       }
 
       setStudents(Array.from(studentsMap.values()))
@@ -739,6 +788,7 @@ export default function CourseDetailPage() {
                         <th className="text-center py-3 px-4 font-semibold text-gray-900">⏰ 지각</th>
                         <th className="text-center py-3 px-4 font-semibold text-gray-900">❌ 결석</th>
                         <th className="text-center py-3 px-4 font-semibold text-gray-900">🏥 공가</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-900">📍 출석 위치</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -770,6 +820,37 @@ export default function CourseDetailPage() {
                             <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
                               {student.excusedCount}회
                             </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {student.location ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <span className={`text-xs font-bold ${locStatusLabel(student.location.final).cls}`}>
+                                  {locStatusLabel(student.location.final).text}
+                                  {student.location.distance != null ? ` · 약 ${student.location.distance}m` : ''}
+                                </span>
+                                {student.location.myLat != null && student.location.myLng != null ? (
+                                  <a
+                                    href={`https://www.google.com/maps?q=${student.location.myLat},${student.location.myLng}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 hover:underline font-medium"
+                                  >
+                                    🗺️ 찍은 위치 보기
+                                  </a>
+                                ) : student.location.venueLat != null && student.location.venueLng != null ? (
+                                  <a
+                                    href={`https://www.google.com/maps?q=${student.location.venueLat},${student.location.venueLng}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-gray-500 hover:underline"
+                                  >
+                                    🏫 현장 위치
+                                  </a>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <span className="text-gray-300">-</span>
+                            )}
                           </td>
                         </tr>
                       ))}

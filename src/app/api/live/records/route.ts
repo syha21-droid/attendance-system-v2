@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   const { data, error } = await db
     .from('attendance_records')
-    .select('user_name, user_id, status, entry_at, exit_at, last_seen_at, entry_distance_m')
+    .select('user_name, user_id, status, entry_at, exit_at, last_seen_at, entry_distance_m, entry_lat, entry_lng')
     .eq('session_id', sessionId)
     .order('entry_at', { ascending: false })
 

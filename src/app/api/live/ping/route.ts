@@ -5,6 +5,17 @@ export const dynamic = 'force-dynamic'
 
 const GRACE_MS = 3 * 60000 // 종료 3분 전부터 '끝까지 있었음'으로 인정
 
+// entry_lat/entry_lng 컬럼 마이그레이션 전이면 좌표 없이도 출석되게 판별
+function isMissingLocColumn(error: any): boolean {
+  const msg = (error?.message || '').toLowerCase()
+  return (
+    error?.code === '42703' ||
+    error?.code === 'PGRST204' ||
+    msg.includes('entry_lat') ||
+    msg.includes('entry_lng')
+  )
+}
+
 /**
  * 위치 핑 — 행동(action)별로 처리
  *  probe     : 현장 안/밖만 확인 (기록 안 함) → 출석 버튼 활성화 판단용
@@ -69,7 +80,7 @@ export async function POST(req: Request) {
       return Response.json({ ok: false, ...base, error: `📍 현장에서만 출석할 수 있습니다 (약 ${distance}m, 허용 ${session.radius_m}m)` })
     }
     if (!rec) {
-      const { error } = await db.from('attendance_records').insert({
+      const insertRow: any = {
         session_id: sessionId,
         user_id: String(userId),
         user_name: userName ? String(userName) : null,
@@ -77,15 +88,30 @@ export async function POST(req: Request) {
         entry_at: nowIso,
         last_seen_at: nowIso,
         entry_distance_m: distance,
+        entry_lat: lat,
+        entry_lng: lng,
         status: 'present',
-      })
+      }
+      let { error } = await db.from('attendance_records').insert(insertRow)
+      if (error && isMissingLocColumn(error)) {
+        // 좌표 컬럼이 아직 없으면(마이그레이션 전) 좌표 없이라도 출석은 되게
+        delete insertRow.entry_lat
+        delete insertRow.entry_lng
+        ;({ error } = await db.from('attendance_records').insert(insertRow))
+      }
       if (error && (error as any).code !== '23505') {
         return Response.json({ ok: false, error: error.message }, { status: 500 })
       }
     } else {
-      await db.from('attendance_records').update({ last_seen_at: nowIso, status: 'present', exit_at: null }).eq('id', rec.id)
+      const updateRow: any = { last_seen_at: nowIso, status: 'present', exit_at: null, entry_lat: lat, entry_lng: lng }
+      let { error } = await db.from('attendance_records').update(updateRow).eq('id', rec.id)
+      if (error && isMissingLocColumn(error)) {
+        delete updateRow.entry_lat
+        delete updateRow.entry_lng
+        await db.from('attendance_records').update(updateRow).eq('id', rec.id)
+      }
     }
-    return Response.json({ ok: true, ...base, status: 'present' })
+    return Response.json({ ok: true, ...base, status: 'present', myLat: lat, myLng: lng })
   }
 
   // ---- heartbeat: 현장 유지/이탈 감지 ----
