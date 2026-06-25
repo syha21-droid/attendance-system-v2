@@ -403,7 +403,7 @@ export default function CourseDetailPage() {
   }
 
   if (loading || !course) {
-    return <div className="min-h-screen flex items-center justify-center">로딩 중...</div>
+    return <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-blue-50 to-indigo-100"><div className="app-spinner" /><p className="text-gray-600 font-semibold">로딩 중...</p></div>
   }
 
   return (
