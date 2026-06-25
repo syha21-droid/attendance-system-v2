@@ -59,6 +59,7 @@ export default function CoursePage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const confirmIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const streamRef = useRef<MediaStream | null>(null) // 카메라 스트림 보관
   // 수강 시간 정밀 측정용 ref (리렌더 영향 없이 누적)
   const presentMsRef = useRef(0)
   const awayMsRef = useRef(0)
@@ -306,13 +307,16 @@ export default function CoursePage() {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false,
+      })
+      // 스트림을 ref에 보관하고 모달을 연다. (모달이 열린 뒤 video 요소에 연결됨)
+      streamRef.current = stream
       setShowCamera(true)
     } catch (error) {
-      toast.error('❌ 카메라 접근 권한이 없습니다.')
+      console.error('camera error', error)
+      toast.error('❌ 카메라를 켤 수 없습니다.\n브라우저 카메라 권한을 허용해주세요.')
     }
   }
 
@@ -390,34 +394,30 @@ export default function CoursePage() {
     const avgGreen = greenSum / pixelCount
     const avgBlue = blueSum / pixelCount
 
-    // 2. 모니터 감지 (모든 경우에 수행)
+    // 2. 모니터 감지 (참고용)
     const hasMonitor = detectMonitorInImage(imageData)
     setMonitorDetected(hasMonitor)
 
-    // 오프라인: 강의실 환경 검증
-    const isBrightnesOk = brightnessValue > 80 && brightnessValue < 230
-
-    // 강의실은 보통 회색, 파란색, 갈색이 섞여있음
+    // 색상 다양성 (단색 화면/가려진 렌즈 = 변화 없음)
     const colorVariance = Math.abs(avgRed - avgGreen) + Math.abs(avgGreen - avgBlue) + Math.abs(avgRed - avgBlue)
-    const hasNaturalColors = colorVariance > 10 // 다양한 색상이 섞여있음
 
-    // 엣지 감지 (직선이 많은 환경)
-    let edgeCount = 0
-    for (let i = 0; i < data.length - 8; i += 4) {
-      const diff = Math.abs(data[i] - data[i + 4]) + Math.abs(data[i + 1] - data[i + 5]) + Math.abs(data[i + 2] - data[i + 6])
-      if (diff > 30) edgeCount++
+    // 명암 변화량 (실제 카메라 영상은 픽셀마다 변화가 있음)
+    let variation = 0
+    for (let i = 0; i < data.length - 4; i += 4) {
+      variation += Math.abs(data[i] - data[i + 4])
     }
-    const hasStructure = edgeCount > (pixelCount * 0.05)
+    const avgVariation = variation / (pixelCount || 1)
 
-    const isClassroom = isBrightnesOk && hasNaturalColors && hasStructure
+    // ✅ 실제로 카메라가 켜져 있고 화면이 보이는지만 확인 (정상 환경은 거의 다 통과)
+    const isTooDark = brightnessValue < 20       // 렌즈 가림 / 카메라 꺼짐 (완전 검정)
+    const isFrozen = avgVariation < 2 && colorVariance < 3 // 변화 없는 단색 = 가짜/정지화면
 
-    if (!isClassroom) {
-      const reason = !isBrightnesOk
-        ? `밝기가 ${Math.round(brightnessValue)}입니다`
-        : !hasNaturalColors
-        ? '색상 분포가 부자연스럽습니다'
-        : '강의실 구조가 감지되지 않습니다'
-      toast.error(`❌ 강의실 환경이 아닙니다.\n${reason}`)
+    if (isTooDark) {
+      toast.error('❌ 화면이 너무 어둡습니다.\n카메라 렌즈를 가리지 말고 밝은 곳에서 다시 시도하세요.')
+      return false
+    }
+    if (isFrozen) {
+      toast.error('❌ 카메라 영상이 감지되지 않습니다.\n카메라가 정상 작동하는지 확인하세요.')
       return false
     }
 
@@ -426,9 +426,9 @@ export default function CoursePage() {
     setFaceDetected(true)
 
     if (hasMonitor) {
-      toast.success('✅ 강의실 환경 확인됨!\n📺 모니터 화면 감지됨')
+      toast.success('✅ 환경 확인 완료!\n📺 화면 감지됨')
     } else {
-      toast.success('✅ 강의실 환경 확인됨!')
+      toast.success('✅ 환경 확인 완료!')
     }
 
     return true
@@ -436,6 +436,12 @@ export default function CoursePage() {
 
   const capturePhotoForAttendance = () => {
     if (!videoRef.current || !canvasRef.current) return
+
+    // 카메라 영상이 아직 준비되지 않았으면 안내
+    if (!videoRef.current.videoWidth || !videoRef.current.videoHeight) {
+      toast.error('⏳ 카메라가 아직 준비되지 않았습니다.\n잠시 후 다시 눌러주세요.')
+      return
+    }
 
     const ctx = canvasRef.current.getContext('2d')
     if (!ctx) return
@@ -458,12 +464,29 @@ export default function CoursePage() {
   }
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
-      tracks.forEach((track) => track.stop())
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
     }
     setShowCamera(false)
   }
+
+  // 카메라 모달이 열리면 video 요소에 스트림을 연결하고 재생
+  useEffect(() => {
+    if (!showCamera) return
+    const video = videoRef.current
+    const stream = streamRef.current
+    if (!video || !stream) return
+
+    video.srcObject = stream
+    video.muted = true
+    video.play().catch((e) => {
+      console.error('video play failed', e)
+    })
+  }, [showCamera])
 
   const verifyAttendanceCode = () => {
     if (!codeInput.trim()) {
@@ -970,6 +993,7 @@ export default function CoursePage() {
                   ref={videoRef}
                   autoPlay
                   playsInline
+                  muted
                   className="w-full"
                   style={{ maxHeight: '300px' }}
                 />
@@ -977,7 +1001,11 @@ export default function CoursePage() {
 
               <div className="space-y-2 mb-4">
                 <p className="text-sm text-gray-600">
-                  ✅ {isOnline ? '강의 화면' : '강의실 환경'}: <span className={environmentOk ? 'text-green-600 font-bold' : 'text-gray-500'}>확인 중...</span>
+                  {environmentOk ? (
+                    <span className="text-green-600 font-bold">✅ 환경 확인 완료!</span>
+                  ) : (
+                    <span className="text-gray-600">📷 얼굴이 화면에 보이면 아래 <b>‘사진 촬영’</b> 버튼을 눌러주세요.</span>
+                  )}
                 </p>
               </div>
 
