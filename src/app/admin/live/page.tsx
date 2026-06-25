@@ -23,6 +23,9 @@ export default function AdminLivePage() {
   const [name, setName] = useState('')
   const [requireGps, setRequireGps] = useState(true)
   const [venue, setVenue] = useState<{ lat: number; lng: number } | null>(null)
+  const [venueLabel, setVenueLabel] = useState('')
+  const [address, setAddress] = useState('')
+  const [geocoding, setGeocoding] = useState(false)
   const [radius, setRadius] = useState(150)
   const [duration, setDuration] = useState(180)
   const [creating, setCreating] = useState(false)
@@ -62,11 +65,32 @@ export default function AdminLivePage() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setVenue({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setVenueLabel('현재 위치')
         toast.success('✅ 현재 위치를 현장으로 설정했습니다', { id: 'loc' })
       },
       () => toast.error('위치 권한을 허용해주세요', { id: 'loc' }),
       { enableHighAccuracy: true, timeout: 10000 }
     )
+  }
+
+  const geocodeAddress = async () => {
+    if (address.trim().length < 2) return toast.error('주소를 입력하세요')
+    setGeocoding(true)
+    try {
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(address)}`, { cache: 'no-store' })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || '주소를 찾을 수 없습니다')
+        return
+      }
+      setVenue({ lat: data.lat, lng: data.lng })
+      setVenueLabel(data.displayName || address)
+      toast.success('✅ 주소로 현장을 설정했습니다')
+    } catch {
+      toast.error('주소 검색 오류')
+    } finally {
+      setGeocoding(false)
+    }
   }
 
   const startSession = async () => {
@@ -187,13 +211,43 @@ export default function AdminLivePage() {
               </label>
               {requireGps && (
                 <>
-                  <button onClick={getLocation} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2">
-                    <MapPin className="w-4 h-4" /> 현재 위치를 현장으로 설정
+                  {/* 주소로 현장 설정 */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">주소로 현장 지정</label>
+                    <div className="flex gap-2">
+                      <input
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && geocodeAddress()}
+                        placeholder="예: 서울특별시 중구 세종대로 110"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-900 font-semibold text-sm"
+                      />
+                      <button
+                        onClick={geocodeAddress}
+                        disabled={geocoding}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 rounded-lg text-sm disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {geocoding ? '검색중' : '🔍 설정'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-px bg-gray-200" />
+                    <span className="text-xs text-gray-400">또는</span>
+                    <div className="flex-1 h-px bg-gray-200" />
+                  </div>
+
+                  <button onClick={getLocation} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2">
+                    <MapPin className="w-4 h-4" /> 현재 내 위치로 설정
                   </button>
+
                   {venue && (
-                    <p className="text-xs text-green-700 font-semibold text-center">
-                      ✅ 현장: {venue.lat.toFixed(5)}, {venue.lng.toFixed(5)}
-                    </p>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-xs text-green-800 font-bold">✅ 현장 설정됨</p>
+                      {venueLabel && <p className="text-xs text-green-700 mt-1 break-words">{venueLabel}</p>}
+                      <p className="text-xs text-green-600 mt-1">좌표: {venue.lat.toFixed(5)}, {venue.lng.toFixed(5)}</p>
+                    </div>
                   )}
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">허용 반경: {radius}m</label>
