@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useStore } from '@/store/useStore'
+import { apiLogin } from '@/lib/dataStore'
 
 export default function Login() {
   const router = useRouter()
@@ -14,42 +15,42 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
 
     if (!email || !password) {
       toast.error('이메일과 비밀번호를 입력하세요')
-      setLoading(false)
       return
     }
 
-    setTimeout(() => {
-      // 회원가입된 사용자 정보에서 조회
-      const usersStr = localStorage.getItem('users')
-      const users = usersStr ? JSON.parse(usersStr) : []
+    setLoading(true)
 
-      const user = users.find((u: any) => u.email === email && u.password === password)
+    // 1) 서버 로그인 (모든 기기 공유)
+    const result = await apiLogin(email, password)
+    let user = result.user
 
-      if (user) {
-        const { password: _, ...userWithoutPassword } = user
-        localStorage.setItem('user', JSON.stringify(userWithoutPassword))
-        setUser(userWithoutPassword as any)
-        toast.success('✅ 로그인 성공!')
-
-        setTimeout(() => {
-          if (user.isAdmin) {
-            router.push('/admin')
-          } else {
-            router.push('/student')
-          }
-        }, 500)
-      } else {
-        toast.error('이메일 또는 비밀번호가 잘못되었습니다')
+    // 2) 서버에 없으면 로컬(이 기기에서 가입한 계정) 폴백
+    if (!user) {
+      const users = JSON.parse(localStorage.getItem('users') || '[]')
+      const found = users.find((u: any) => u.email === email && u.password === password)
+      if (found) {
+        const { password: _pw, ...rest } = found
+        user = rest
       }
+    }
 
-      setLoading(false)
-    }, 500)
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user))
+      setUser(user as any)
+      toast.success('✅ 로그인 성공!')
+      setTimeout(() => {
+        router.push(user.isAdmin ? '/admin' : '/student')
+      }, 400)
+    } else {
+      toast.error('이메일 또는 비밀번호가 잘못되었습니다')
+    }
+
+    setLoading(false)
   }
 
   return (

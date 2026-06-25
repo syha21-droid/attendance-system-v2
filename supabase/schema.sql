@@ -48,3 +48,47 @@ alter table attendance_records add column if not exists exit_lng double precisio
 alter table attendance_sessions enable row level security;
 alter table attendance_records enable row level security;
 -- 정책 미추가 → 서버(service_role)만 접근. 클라이언트 직접 접근 차단.
+
+-- ============================================================
+-- 기기 간 공유: 계정 / 강의 / 수강신청 (localStorage → 서버 이전)
+-- ============================================================
+
+-- 계정 (회원). 비밀번호는 데모용 평문 — 운영 시 해시 권장
+create table if not exists app_users (
+  id text primary key,
+  email text unique not null,
+  password text not null,
+  name text not null,
+  is_admin boolean not null default false,
+  created_at timestamptz default now()
+);
+
+-- 강의 (관리자 생성 → 모든 학생이 같은 id로 봄)
+create table if not exists courses (
+  id text primary key,
+  name text not null,
+  instructor text not null,
+  course_type text default 'session',  -- session | episode
+  episode_count integer,
+  created_at timestamptz default now()
+);
+
+-- 수강 신청 (학생 ↔ 강의)
+create table if not exists enrollments (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  course_id text not null,
+  created_at timestamptz default now(),
+  unique (user_id, course_id)
+);
+
+alter table app_users enable row level security;
+alter table courses enable row level security;
+alter table enrollments enable row level security;
+
+-- 기본 강의 3개 (클라이언트 기본값과 동일한 id) — 처음 1회만
+insert into courses (id, name, instructor, course_type) values
+  ('1', 'Python 기초', '김교수', 'session'),
+  ('2', '웹개발', '이교수', 'session'),
+  ('3', '데이터분석', '박교수', 'session')
+on conflict (id) do nothing;

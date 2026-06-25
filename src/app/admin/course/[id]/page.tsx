@@ -9,6 +9,7 @@ import { useStore } from '@/store/useStore'
 import * as XLSX from 'xlsx'
 import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
+import { loadCourses, createCourse, loadStudents as loadServerStudents, loadCourseEnrollments } from '@/lib/dataStore'
 
 interface CourseMaterial {
   id: string
@@ -95,41 +96,46 @@ export default function CourseDetailPage() {
 
     setUser(userData)
 
-    const savedCourses = localStorage.getItem('courses')
-    if (savedCourses) {
-      const courses = JSON.parse(savedCourses)
-      const found = courses.find((c: Course) => c.id === courseId)
-      if (found) {
-        setCourse(found)
-        setInstructorName(found.instructor)
-        loadMaterials(found.id)
-        loadStudents(found.id)
+    const applyCourse = (found: Course) => {
+      setCourse(found)
+      setInstructorName(found.instructor)
+      loadMaterials(found.id)
+      loadStudents(found.id)
 
-        const noticeKey = `course_notice_${found.id}`
-        const savedNotice = localStorage.getItem(noticeKey)
-        if (savedNotice) {
-          setNotice(savedNotice)
-        }
+      const savedNotice = localStorage.getItem(`course_notice_${found.id}`)
+      if (savedNotice) setNotice(savedNotice)
 
-        const scheduleKey = found.courseType === 'episode'
-          ? `course_schedule_${found.id}_episode_1`
-          : `course_schedule_${found.id}`
-        const savedSchedule = localStorage.getItem(scheduleKey)
-        if (savedSchedule) {
-          const data = JSON.parse(savedSchedule)
-          setSchedule(data.classes || [])
-          setLateThreshold(data.lateThreshold || 10)
-          setAbsentThreshold(data.absentThreshold || 30)
-        } else {
-          setSchedule([
-            { number: 1, name: '1교시', startTime: '09:00', endTime: '10:00' },
-            { number: 2, name: '2교시', startTime: '10:00', endTime: '11:00' },
-            { number: 3, name: '3교시', startTime: '11:00', endTime: '12:00' },
-          ])
-        }
+      const scheduleKey = found.courseType === 'episode'
+        ? `course_schedule_${found.id}_episode_1`
+        : `course_schedule_${found.id}`
+      const savedSchedule = localStorage.getItem(scheduleKey)
+      if (savedSchedule) {
+        const data = JSON.parse(savedSchedule)
+        setSchedule(data.classes || [])
+        setLateThreshold(data.lateThreshold || 10)
+        setAbsentThreshold(data.absentThreshold || 30)
+      } else {
+        setSchedule([
+          { number: 1, name: '1교시', startTime: '09:00', endTime: '10:00' },
+          { number: 2, name: '2교시', startTime: '10:00', endTime: '11:00' },
+          { number: 3, name: '3교시', startTime: '11:00', endTime: '12:00' },
+        ])
       }
     }
-    setLoading(false)
+
+    // 즉시: localStorage 캐시
+    const savedCourses = localStorage.getItem('courses')
+    if (savedCourses) {
+      const found = JSON.parse(savedCourses).find((c: Course) => c.id === courseId)
+      if (found) applyCourse(found)
+    }
+    // 권위: 서버 (다른 기기에서 만든 강의도 조회)
+    ;(async () => {
+      const list = await loadCourses()
+      const found = list.find((c) => c.id === courseId)
+      if (found) applyCourse(found)
+      setLoading(false)
+    })()
   }, [courseId, router, setUser])
 
   // 회차 변경 시 시간표 다시 로드
@@ -183,6 +189,12 @@ export default function CourseDetailPage() {
         })
       }
 
+      // 서버 학생(모든 기기 가입자) 이름/이메일 합치기
+      const serverStudents = await loadServerStudents()
+      if (serverStudents) {
+        serverStudents.forEach((s: any) => infoMap.set(s.id, { name: s.name || s.id, email: s.email || '' }))
+      }
+
       const ensure = (userId: string) => {
         if (!studentsMap.has(userId)) {
           const info = infoMap.get(userId)
@@ -200,6 +212,7 @@ export default function CourseDetailPage() {
       }
 
       // 1. 이 강의에 "등록(수강 신청)"한 학생 → 출석 전이라도 명단에 표시
+      //    (로컬 enrolled_ + 서버 수강신청 모두)
       for (const key of allKeys) {
         if (key.startsWith('enrolled_')) {
           const userId = key.slice('enrolled_'.length)
@@ -209,6 +222,8 @@ export default function CourseDetailPage() {
           }
         }
       }
+      const serverEnrolled = await loadCourseEnrollments(cId)
+      if (serverEnrolled) serverEnrolled.forEach((uid) => ensure(uid))
 
       // 2. 출석 기록이 있는 학생 → 출석/지각/결석/공가 카운트 반영
       for (const key of allKeys) {
@@ -314,23 +329,24 @@ export default function CourseDetailPage() {
     toast.success('✅ 강의 자료가 삭제되었습니다')
   }
 
-  const handleSaveInstructor = () => {
+  const handleSaveInstructor = async () => {
     if (!course || !instructorName.trim()) {
       toast.error('강사명을 입력하세요')
       return
     }
 
+    const updatedCourse = { ...course, instructor: instructorName }
+
     const savedCourses = localStorage.getItem('courses')
     if (savedCourses) {
       const courses = JSON.parse(savedCourses)
-      const updated = courses.map((c: Course) =>
-        c.id === course.id ? { ...c, instructor: instructorName } : c
-      )
+      const updated = courses.map((c: Course) => (c.id === course.id ? updatedCourse : c))
       localStorage.setItem('courses', JSON.stringify(updated))
-      setCourse({ ...course, instructor: instructorName })
-      toast.success('✅ 강사명이 저장되었습니다')
-      setIsEditingInstructor(false)
     }
+    setCourse(updatedCourse)
+    await createCourse(updatedCourse) // 서버에도 반영(upsert) → 다른 기기/재조회에도 유지
+    toast.success('✅ 강사명이 저장되었습니다')
+    setIsEditingInstructor(false)
   }
 
   const handleSaveNotice = () => {

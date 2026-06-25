@@ -22,11 +22,24 @@ export async function GET(req: Request) {
   const sessMap = new Map(sessions.map((s: any) => [s.id, s]))
   const sessionIds = sessions.map((s: any) => s.id)
 
-  const { data: records } = await db
+  const FULL = 'session_id, user_id, user_name, status, entry_at, exit_at, last_seen_at, entry_distance_m, entry_lat, entry_lng, exit_lat, exit_lng'
+  const BASIC = 'session_id, user_id, user_name, status, entry_at, exit_at, last_seen_at, entry_distance_m'
+  let records: any[] | null = null
+  const full = await db
     .from('attendance_records')
-    .select('session_id, user_id, user_name, status, entry_at, exit_at, last_seen_at, entry_distance_m, entry_lat, entry_lng, exit_lat, exit_lng')
+    .select(FULL)
     .in('session_id', sessionIds)
     .order('entry_at', { ascending: false })
+  records = full.data
+  // 좌표 컬럼 마이그레이션 전이면 기본 컬럼만으로 재시도
+  if (full.error) {
+    const basic = await db
+      .from('attendance_records')
+      .select(BASIC)
+      .in('session_id', sessionIds)
+      .order('entry_at', { ascending: false })
+    records = basic.data
+  }
 
   const result = (records || []).map((r: any) => {
     const s: any = sessMap.get(r.session_id)

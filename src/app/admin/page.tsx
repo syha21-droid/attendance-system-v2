@@ -8,6 +8,7 @@ import { useStore } from '@/store/useStore'
 import * as XLSX from 'xlsx'
 import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
+import { loadCourses, createCourse, deleteCourse, syncLocalCoursesToServer, loadStudents } from '@/lib/dataStore'
 
 export default function AdminPage() {
   const router = useRouter()
@@ -37,24 +38,24 @@ export default function AdminPage() {
 
     setUser(userData)
 
-    const savedCourses = localStorage.getItem('courses')
-    if (savedCourses) {
-      setCourses(JSON.parse(savedCourses))
-    } else {
-      const defaultCourses = [
-        { id: '1', name: 'Python 기초', instructor: '김교수', createdAt: new Date().toISOString() },
-        { id: '2', name: '웹개발', instructor: '이교수', createdAt: new Date().toISOString() },
-        { id: '3', name: '데이터분석', instructor: '박교수', createdAt: new Date().toISOString() },
-      ]
-      setCourses(defaultCourses)
-      localStorage.setItem('courses', JSON.stringify(defaultCourses))
-    }
+    // 강의: 서버 우선 + 로컬 전용 강의를 서버로 1회 이전
+    ;(async () => {
+      const beforeRaw = localStorage.getItem('courses')
+      const beforeLocal: Course[] = beforeRaw ? JSON.parse(beforeRaw) : []
+      const server = await loadCourses()
+      let list = server
+      if (beforeLocal.length) {
+        const changed = await syncLocalCoursesToServer(beforeLocal, server)
+        if (changed) list = await loadCourses()
+      }
+      setCourses(list)
+    })()
 
     loadStats()
   }, [router, setUser])
 
-  const loadStats = () => {
-    // 회원가입한 학생 수 집계 (users 비관리자 + students + 출석기록)
+  const loadStats = async () => {
+    // 회원가입한 학생 수 집계 (서버 우선, 폴백 localStorage)
     const studentIds = new Set<string>()
 
     const usersData = localStorage.getItem('users')
@@ -79,6 +80,10 @@ export default function AdminPage() {
       }
     })
 
+    // 서버 학생(모든 기기 가입자) 합산
+    const serverStudents = await loadStudents()
+    if (serverStudents) serverStudents.forEach((s: any) => studentIds.add(s.id))
+
     setStudentCount(studentIds.size)
 
     // 평균 출석률 집계
@@ -96,7 +101,7 @@ export default function AdminPage() {
     setAvgAttendanceRate(totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 0)
   }
 
-  const handleAddCourse = () => {
+  const handleAddCourse = async () => {
     if (!newCourseName || !newCourseInstructor) {
       toast.error('강의명과 강사명을 입력하세요')
       return
@@ -111,20 +116,20 @@ export default function AdminPage() {
       episodeCount: newCourseType === 'episode' ? newEpisodeCount : undefined,
     }
 
-    const updated = [...courses, newCourse]
-    setCourses(updated)
-    localStorage.setItem('courses', JSON.stringify(updated))
-    toast.success('✅ 강의가 추가되었습니다')
+    setCourses((prev) => [...prev, newCourse]) // 즉시 반영
+    await createCourse(newCourse) // 서버 + 캐시
+    setCourses(await loadCourses())
+    toast.success('✅ 강의가 추가되었습니다 (모든 기기 공유)')
     setNewCourseName('')
     setNewCourseInstructor('')
     setNewCourseType('session')
     setNewEpisodeCount(9)
   }
 
-  const handleDeleteCourse = (id: string) => {
-    const updated = courses.filter((c) => c.id !== id)
-    setCourses(updated)
-    localStorage.setItem('courses', JSON.stringify(updated))
+  const handleDeleteCourse = async (id: string) => {
+    setCourses((prev) => prev.filter((c) => c.id !== id)) // 즉시 반영
+    await deleteCourse(id) // 서버 + 캐시
+    setCourses(await loadCourses())
     toast.success('✅ 강의가 삭제되었습니다')
   }
 

@@ -6,6 +6,7 @@ import { ArrowLeft, MapPin, Radio, Users } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import toast from 'react-hot-toast'
 import { Course } from '@/types'
+import { loadCourses } from '@/lib/dataStore'
 
 interface LiveSession {
   id: string
@@ -42,15 +43,14 @@ export default function AdminLivePage() {
       router.push('/login')
       return
     }
-    const c = localStorage.getItem('courses')
-    if (c) {
-      const list = JSON.parse(c)
+    ;(async () => {
+      const list = await loadCourses()
       setCourses(list)
       if (list[0]) {
         setCourseId(list[0].id)
         setName(`${list[0].name} 출석`)
       }
-    }
+    })()
   }, [router])
 
   const getLocation = () => {

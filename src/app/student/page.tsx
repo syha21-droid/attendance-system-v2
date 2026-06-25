@@ -7,6 +7,7 @@ import { LogOut, BookOpen, Award } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
+import { loadCourses, loadEnrolledCourses, enrollCourse } from '@/lib/dataStore'
 
 export default function StudentPage() {
   const router = useRouter()
@@ -34,24 +35,13 @@ export default function StudentPage() {
 
     setUser(userData)
 
-    const savedCourses = localStorage.getItem('courses')
-    if (savedCourses) {
-      const allCourses = JSON.parse(savedCourses)
-      setCourses(allCourses)
-    } else {
-      const defaultCourses = [
-        { id: '1', name: 'Python 기초', instructor: '김교수', createdAt: new Date().toISOString() },
-        { id: '2', name: '웹개발', instructor: '이교수', createdAt: new Date().toISOString() },
-        { id: '3', name: '데이터분석', instructor: '박교수', createdAt: new Date().toISOString() },
-      ]
-      setCourses(defaultCourses)
-      localStorage.setItem('courses', JSON.stringify(defaultCourses))
-    }
-
-    const saved = localStorage.getItem(`enrolled_${userData.id}`)
-    if (saved) {
-      setEnrolledCourses(JSON.parse(saved))
-    }
+    // 강의/수강신청: 서버 우선 (모든 기기 공유), 폴백 localStorage
+    ;(async () => {
+      const list = await loadCourses()
+      setCourses(list)
+      const enrolled = await loadEnrolledCourses(userData.id, list)
+      setEnrolledCourses(enrolled)
+    })()
 
     // 출석 통계 집계
     let present = 0
@@ -73,14 +63,14 @@ export default function StudentPage() {
     setAttendanceRate(denom > 0 ? Math.round(((present + late) / denom) * 100) : 0)
   }, [router, setUser])
 
-  const handleEnroll = () => {
+  const handleEnroll = async () => {
     if (!selectedCourse) {
       toast.error('강의를 선택하세요')
       return
     }
 
     const course = courses.find((c) => c.id === selectedCourse)
-    if (!course) return
+    if (!course || !user) return
 
     if (enrolledCourses.some((c) => c.id === course.id)) {
       toast.error('이미 등록한 강의입니다')
@@ -89,7 +79,7 @@ export default function StudentPage() {
 
     const updated = [...enrolledCourses, course]
     setEnrolledCourses(updated)
-    localStorage.setItem(`enrolled_${user?.id}`, JSON.stringify(updated))
+    await enrollCourse(user.id, course) // 서버 + 캐시
     toast.success('✅ 강의 등록 완료!')
     setSelectedCourse('')
     setShowForm(false)

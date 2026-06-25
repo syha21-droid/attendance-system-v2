@@ -16,11 +16,26 @@ export async function GET(req: Request) {
     .eq('id', sessionId)
     .single()
 
-  const { data, error } = await db
+  const FULL = 'user_name, user_id, status, entry_at, exit_at, last_seen_at, entry_distance_m, entry_lat, entry_lng, exit_lat, exit_lng'
+  const BASIC = 'user_name, user_id, status, entry_at, exit_at, last_seen_at, entry_distance_m'
+  let data: any[] | null = null
+  const full = await db
     .from('attendance_records')
-    .select('user_name, user_id, status, entry_at, exit_at, last_seen_at, entry_distance_m, entry_lat, entry_lng, exit_lat, exit_lng')
+    .select(FULL)
     .eq('session_id', sessionId)
     .order('entry_at', { ascending: false })
+  data = full.data
+  let error = full.error
+  // 좌표 컬럼 마이그레이션 전이면 기본 컬럼만으로 재시도
+  if (error) {
+    const basic = await db
+      .from('attendance_records')
+      .select(BASIC)
+      .eq('session_id', sessionId)
+      .order('entry_at', { ascending: false })
+    data = basic.data
+    error = basic.error
+  }
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 

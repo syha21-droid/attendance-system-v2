@@ -7,6 +7,7 @@ import { LogOut, Clock, MapPin, Navigation, Crosshair, Wifi } from 'lucide-react
 import { useStore } from '@/store/useStore'
 import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
+import { loadCourses } from '@/lib/dataStore'
 
 function getDeviceId(): string {
   let id = localStorage.getItem('deviceId')
@@ -134,6 +135,11 @@ export default function CoursePage() {
       const courses = JSON.parse(savedCourses)
       setCourse(courses.find((c: Course) => c.id === courseId) || null)
     }
+    // 서버에서도 강의 조회 (다른 기기에서 만든 강의 대응)
+    loadCourses().then((list) => {
+      const found = list.find((c) => c.id === courseId)
+      if (found) setCourse(found)
+    })
 
     const savedMaterials = localStorage.getItem(`course_materials_${courseId}`)
     if (savedMaterials) setMaterials(JSON.parse(savedMaterials))

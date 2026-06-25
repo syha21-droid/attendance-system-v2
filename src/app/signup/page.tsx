@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useStore } from '@/store/useStore'
+import { apiSignup } from '@/lib/dataStore'
 
 export default function SignUp() {
   const router = useRouter()
@@ -25,7 +26,7 @@ export default function SignUp() {
     }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!formData.email || !formData.password || !formData.name) {
@@ -34,52 +35,54 @@ export default function SignUp() {
     }
 
     const userId = Math.random().toString(36).substr(2, 9)
-    const user = {
+
+    // 서버 가입 시도 (모든 기기 공유). no-db면 로컬 폴백.
+    const result = await apiSignup({
+      id: userId,
+      email: formData.email,
+      password: formData.password,
+      name: formData.name,
+      isAdmin: formData.isAdmin,
+    })
+    if (result.error && !result.nodb) {
+      toast.error(result.error) // 예: 이미 가입된 이메일
+      return
+    }
+
+    const user = result.user || {
       id: userId,
       email: formData.email,
       name: formData.name,
-      password: formData.password, // 로그인 검증용
       isAdmin: formData.isAdmin,
     }
 
-    // 회원가입된 사용자 정보 저장
+    // 로컬 캐시 (오프라인/폴백 로그인용 — 비밀번호 포함)
     const usersStr = localStorage.getItem('users')
     const users = usersStr ? JSON.parse(usersStr) : []
-    users.push(user)
-    localStorage.setItem('users', JSON.stringify(users))
+    if (!users.some((u: any) => u.email === formData.email)) {
+      users.push({ ...user, password: formData.password })
+      localStorage.setItem('users', JSON.stringify(users))
+    }
 
-    // 사용자 로그인 상태 저장
-    const { password: _, ...userWithoutPassword } = user
-    localStorage.setItem('user', JSON.stringify(userWithoutPassword))
-    setUser(userWithoutPassword as any)
+    // 로그인 세션
+    localStorage.setItem('user', JSON.stringify(user))
+    setUser(user as any)
 
-    // 학생이 아닌 경우만 학생 목록에 추가
-    if (!formData.isAdmin) {
-      const studentsKey = 'students'
-      const existingStudents = localStorage.getItem(studentsKey)
+    // 학생이면 로컬 학생 목록에도 캐시
+    if (!user.isAdmin) {
+      const existingStudents = localStorage.getItem('students')
       const students = existingStudents ? JSON.parse(existingStudents) : []
-
-      const isDuplicate = students.some((s: any) => s.id === userId)
-      if (!isDuplicate) {
-        students.push({
-          id: userId,
-          email: formData.email,
-          name: formData.name,
-          createdAt: new Date().toISOString(),
-        })
-        localStorage.setItem(studentsKey, JSON.stringify(students))
+      if (!students.some((s: any) => s.id === user.id)) {
+        students.push({ id: user.id, email: user.email, name: user.name, createdAt: new Date().toISOString() })
+        localStorage.setItem('students', JSON.stringify(students))
       }
     }
 
     toast.success('✅ 회원가입 완료!')
 
     setTimeout(() => {
-      if (user.isAdmin) {
-        router.push('/admin')
-      } else {
-        router.push('/student')
-      }
-    }, 1000)
+      router.push(user.isAdmin ? '/admin' : '/student')
+    }, 800)
   }
 
   return (
