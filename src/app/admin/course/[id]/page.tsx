@@ -6,7 +6,6 @@ import toast from 'react-hot-toast'
 import { LogOut, ArrowLeft, Upload, Trash2, Download, QrCode, X } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useStore } from '@/store/useStore'
-import { supabase } from '@/lib/supabase'
 import * as XLSX from 'xlsx'
 import { Course } from '@/types'
 
@@ -144,73 +143,61 @@ export default function CourseDetailPage() {
   const loadStudents = async (cId: string) => {
     try {
       const studentsMap = new Map<string, any>()
-
       const allKeys = Object.keys(localStorage)
-      for (const key of allKeys) {
-        if (key.startsWith(`attendance_`) && key.endsWith(`_${cId}`)) {
-          const parts = key.split('_')
-          if (parts.length >= 3) {
-            const userId = parts.slice(1, -1).join('_')
-            if (!studentsMap.has(userId)) {
-              const data = JSON.parse(localStorage.getItem(key) || '[]')
-              const attendanceCount = data.filter((r: any) => r.status === 'present').length
-              const lateCount = data.filter((r: any) => r.status === 'late').length
-              const absentCount = data.filter((r: any) => r.status === 'absent').length
-              const excusedCount = data.filter((r: any) => r.status === 'excused').length
 
-              studentsMap.set(userId, {
-                id: userId,
-                name: `학생 ${userId.substring(0, 8)}`,
-                email: `student_${userId.substring(0, 8)}@example.com`,
-                attendanceCount,
-                lateCount,
-                absentCount,
-                excusedCount,
-              })
-            }
+      // 학생 실제 이름/이메일 (users + students 배열)
+      const infoMap = new Map<string, { name: string; email: string }>()
+      const usersData = localStorage.getItem('users')
+      if (usersData) {
+        JSON.parse(usersData).forEach((u: any) => {
+          if (!u.isAdmin) infoMap.set(u.id, { name: u.name || u.id, email: u.email || '' })
+        })
+      }
+      const studentsArr = localStorage.getItem('students')
+      if (studentsArr) {
+        JSON.parse(studentsArr).forEach((s: any) => {
+          infoMap.set(s.id, { name: s.name || s.id, email: s.email || '' })
+        })
+      }
+
+      const ensure = (userId: string) => {
+        if (!studentsMap.has(userId)) {
+          const info = infoMap.get(userId)
+          studentsMap.set(userId, {
+            id: userId,
+            name: info?.name || `학생 ${userId.substring(0, 6)}`,
+            email: info?.email || '',
+            attendanceCount: 0,
+            lateCount: 0,
+            absentCount: 0,
+            excusedCount: 0,
+          })
+        }
+        return studentsMap.get(userId)
+      }
+
+      // 1. 이 강의에 "등록(수강 신청)"한 학생 → 출석 전이라도 명단에 표시
+      for (const key of allKeys) {
+        if (key.startsWith('enrolled_')) {
+          const userId = key.slice('enrolled_'.length)
+          const enrolled = JSON.parse(localStorage.getItem(key) || '[]')
+          if (Array.isArray(enrolled) && enrolled.some((c: any) => c.id === cId)) {
+            ensure(userId)
           }
         }
       }
 
-      if (supabase) {
-        const { data: usersData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('role', 'student')
-
-        if (usersData && usersData.length > 0) {
-          for (const user of usersData) {
-            const { data: attendanceData } = await supabase!
-              .from('attendances')
-              .select('*')
-              .eq('user_id', user.id)
-              .eq('course_id', cId)
-
-            const attendanceCount = attendanceData?.filter(
-              (a: any) => a.status === 'present'
-            ).length || 0
-            const lateCount = attendanceData?.filter(
-              (a: any) => a.status === 'late'
-            ).length || 0
-            const absentCount = attendanceData?.filter(
-              (a: any) => a.status === 'absent'
-            ).length || 0
-            const excusedCount = attendanceData?.filter(
-              (a: any) => a.status === 'excused'
-            ).length || 0
-
-            if (attendanceCount + lateCount + absentCount + excusedCount > 0) {
-              studentsMap.set(user.id, {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                attendanceCount,
-                lateCount,
-                absentCount,
-                excusedCount,
-              })
-            }
-          }
+      // 2. 출석 기록이 있는 학생 → 출석/지각/결석/공가 카운트 반영
+      for (const key of allKeys) {
+        if (key.startsWith('attendance_') && key.endsWith(`_${cId}`)) {
+          const parts = key.split('_')
+          const userId = parts.slice(1, -1).join('_')
+          const data = JSON.parse(localStorage.getItem(key) || '[]')
+          const s = ensure(userId)
+          s.attendanceCount = data.filter((r: any) => r.status === 'present').length
+          s.lateCount = data.filter((r: any) => r.status === 'late').length
+          s.absentCount = data.filter((r: any) => r.status === 'absent').length
+          s.excusedCount = data.filter((r: any) => r.status === 'excused').length
         }
       }
 
@@ -722,7 +709,10 @@ export default function CourseDetailPage() {
 
               {students.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  아직 이 강의에 출석한 학생이 없습니다
+                  <p>아직 이 강의에 등록한 학생이 없습니다</p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    [학생 관리 → 수강 변경]에서 학생을 이 강의에 등록하면 명단에 표시됩니다
+                  </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
