@@ -8,6 +8,7 @@ import { useStore } from '@/store/useStore'
 import { supabase } from '@/lib/supabase'
 import { Course } from '@/types'
 import { syncTrustedTime, getTrustedNow, getClockSkewSeconds } from '@/lib/trustedTime'
+import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
 
 // 수강 완료 기준 (와서 끝까지 들어야 출석 인정)
 const COMPLETION_THRESHOLD = 0.8        // 입장~종료 시간의 80% 이상 실제 수강해야 출석 인정
@@ -22,17 +23,8 @@ export default function CoursePage() {
   const user = useStore((state) => state.user)
   const setUser = useStore((state) => state.setUser)
 
-  // 처음 렌더부터 localStorage를 바로 읽어 깜빡임 없이 즉시 표시
-  const [course, setCourse] = useState<Course | null>(() => {
-    if (typeof window === 'undefined') return null
-    try {
-      const s = localStorage.getItem('courses')
-      return s ? (JSON.parse(s).find((c: Course) => c.id === courseId) || null) : null
-    } catch {
-      return null
-    }
-  })
-  const [pageLoaded, setPageLoaded] = useState(() => typeof window !== 'undefined')
+  const [course, setCourse] = useState<Course | null>(null)
+  const [pageLoaded, setPageLoaded] = useState(false) // 초기 로드 완료 여부
   const [attendances, setAttendances] = useState(0)
   const [lateCount, setLateCount] = useState(0)
   const [absentCount, setAbsentCount] = useState(0)
@@ -78,7 +70,7 @@ export default function CoursePage() {
   const entryTsRef = useRef(0)
   const missedChecksRef = useRef(0)
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const savedUser = localStorage.getItem('user')
     if (!savedUser) {
       router.push('/login')

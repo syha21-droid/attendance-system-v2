@@ -8,6 +8,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { useStore } from '@/store/useStore'
 import * as XLSX from 'xlsx'
 import { Course } from '@/types'
+import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
 
 interface CourseMaterial {
   id: string
@@ -33,20 +34,11 @@ export default function CourseDetailPage() {
   const user = useStore((state) => state.user)
   const setUser = useStore((state) => state.setUser)
 
-  // 처음 렌더부터 localStorage를 바로 읽어 깜빡임 없이 즉시 표시
-  const [course, setCourse] = useState<Course | null>(() => {
-    if (typeof window === 'undefined') return null
-    try {
-      const s = localStorage.getItem('courses')
-      return s ? (JSON.parse(s).find((c: Course) => c.id === courseId) || null) : null
-    } catch {
-      return null
-    }
-  })
+  const [course, setCourse] = useState<Course | null>(null)
   const [materials, setMaterials] = useState<any[]>([])
   const [students, setStudents] = useState<StudentAttendance[]>([])
   const [newMaterialName, setNewMaterialName] = useState('')
-  const [loading, setLoading] = useState(() => typeof window === 'undefined')
+  const [loading, setLoading] = useState(true)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [instructorName, setInstructorName] = useState('')
   const [isEditingInstructor, setIsEditingInstructor] = useState(false)
@@ -66,7 +58,7 @@ export default function CourseDetailPage() {
   const [activeExitCode, setActiveExitCode] = useState<string | null>(null)
   const [exitCodeGeneratedTime, setExitCodeGeneratedTime] = useState<string | null>(null)
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const savedUser = localStorage.getItem('user')
     if (!savedUser) {
       router.push('/login')

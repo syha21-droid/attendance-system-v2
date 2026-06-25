@@ -19,19 +19,8 @@ interface Store {
   logout: () => void
 }
 
-// 클라이언트에서는 localStorage의 로그인 정보를 즉시 읽어 깜빡임 방지
-const getInitialUser = (): User | null => {
-  if (typeof window === 'undefined') return null
-  try {
-    const s = localStorage.getItem('user')
-    return s ? JSON.parse(s) : null
-  } catch {
-    return null
-  }
-}
-
 export const useStore = create<Store>((set) => ({
-  user: getInitialUser(),
+  user: null,
   courses: [],
   enrollments: [],
   attendances: [],

@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { LogOut, Users, BookOpen, BarChart3, Download } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import * as XLSX from 'xlsx'
 import { Course } from '@/types'
+import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
 
 export default function AdminPage() {
   const router = useRouter()
@@ -21,7 +22,7 @@ export default function AdminPage() {
   const [studentCount, setStudentCount] = useState(0)
   const [avgAttendanceRate, setAvgAttendanceRate] = useState(0)
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const savedUser = localStorage.getItem('user')
     if (!savedUser) {
       router.push('/login')
