@@ -7,7 +7,13 @@ import { LogOut, Clock, AlertCircle, Camera, X } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { supabase } from '@/lib/supabase'
 import { Course } from '@/types'
-import { syncTrustedTime, getTrustedNow, isTimeTrusted, getClockSkewSeconds } from '@/lib/trustedTime'
+import { syncTrustedTime, getTrustedNow, getClockSkewSeconds } from '@/lib/trustedTime'
+
+// 수강 완료 기준 (와서 끝까지 들어야 출석 인정)
+const COMPLETION_THRESHOLD = 0.8        // 입장~종료 시간의 80% 이상 실제 수강해야 출석 인정
+const CHECK_RESPONSE_WINDOW_MS = 90_000 // 집중 확인(랜덤) 응답 제한 시간: 90초
+const MAX_MISSED_CHECKS = 1             // 허용 미응답 횟수 (초과 시 출석 불인정)
+const AVG_CHECK_INTERVAL_MS = 12 * 60_000 // 평균 12분마다 랜덤 집중 확인
 
 export default function CoursePage() {
   const router = useRouter()
@@ -42,14 +48,24 @@ export default function CoursePage() {
   const [exitCodeInput, setExitCodeInput] = useState('') // 퇴장 코드 입력
   const [exitCodeVerified, setExitCodeVerified] = useState(false) // 퇴장 코드 검증
   const [isOnline] = useState<boolean>(false) // 항상 오프라인(강의실)
-  const [watchingMinutes, setWatchingMinutes] = useState(0) // 강의 시청/참여 시간
-  const [lastConfirmTime, setLastConfirmTime] = useState<Date | null>(null) // 마지막 확인 시간
-  const [needsReconfirm, setNeedsReconfirm] = useState(false) // 재확인 필요
   const [timeTrusted, setTimeTrusted] = useState(false) // 서버 시간 동기화 여부
   const [clockTampered, setClockTampered] = useState(false) // 기기 시계 조작 감지
+  // 수강 완료 추적
+  const [presentSeconds, setPresentSeconds] = useState(0) // 실제 수강(집중) 시간
+  const [awaySeconds, setAwaySeconds] = useState(0) // 자리 비움 시간
+  const [pendingCheck, setPendingCheck] = useState(false) // 랜덤 집중 확인 진행 중
+  const [missedChecks, setMissedChecks] = useState(0) // 집중 확인 미응답 횟수
+  const [checkCycle, setCheckCycle] = useState(0) // 다음 확인 스케줄 트리거
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const confirmIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  // 수강 시간 정밀 측정용 ref (리렌더 영향 없이 누적)
+  const presentMsRef = useRef(0)
+  const awayMsRef = useRef(0)
+  const segmentStartRef = useRef(0)
+  const isHereRef = useRef(true)
+  const entryTsRef = useRef(0)
+  const missedChecksRef = useRef(0)
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -264,11 +280,10 @@ export default function CoursePage() {
     setIsConfirmingAttendance(false)
 
     const statusMessage = status === 'present' ? '✅ 입장' : status === 'late' ? '⏰ 입장(지각)' : '⚠️ 입장(결석)'
-    toast.success(`${statusMessage} ${course.name} ${currentClass.name}: ${currentTime}`)
+    toast.success(`${statusMessage} ${course.name} ${currentClass.name}: ${currentTime}\n끝까지 수강해야 출석으로 인정됩니다.`)
 
-    // 강의 진행 중 5분마다 재확인 시작
-    startPeriodicConfirm()
-    setLastConfirmTime(new Date())
+    // 수강 완료 추적 시작 (와서 끝까지 들어야 출석 인정)
+    startWatchTracking()
   }
 
   const canExit = (): boolean => {
@@ -562,6 +577,33 @@ export default function CoursePage() {
     const attendanceRecord = JSON.parse(attendingData)
     attendanceRecord.exitTime = exitTime
 
+    // ===== 수강 완료 검증: 와서 끝까지 들었는지 판정 =====
+    flushSegment() // 퇴장 시점까지 수강 시간 반영
+    const presentMs = presentMsRef.current
+
+    // 입장~수업종료 동안 실제로 들었어야 하는 시간 산정
+    const [eH, eM] = currentClass.endTime.split(':').map(Number)
+    const endDate = new Date(now)
+    endDate.setHours(eH, eM, 0, 0)
+    const availableMs = Math.max(60_000, endDate.getTime() - entryTsRef.current)
+    const requiredMs = availableMs * COMPLETION_THRESHOLD
+    const attendedRatio = Math.min(1, presentMs / availableMs)
+
+    attendanceRecord.attendedMinutes = Math.round(presentMs / 60000)
+    attendanceRecord.attendedRatio = Math.round(attendedRatio * 100)
+    attendanceRecord.awayMinutes = Math.round(awayMsRef.current / 60000)
+    attendanceRecord.missedChecks = missedChecksRef.current
+
+    const completed =
+      presentMs >= requiredMs && missedChecksRef.current <= MAX_MISSED_CHECKS
+
+    if (!completed) {
+      // 끝까지 듣지 않음 → 출석 불인정 (결석 처리)
+      attendanceRecord.status = 'absent'
+      attendanceRecord.notCompleted = true
+      attendanceRecord.reason = `수강 미완료 (참여율 ${Math.round(attendedRatio * 100)}%, 미응답 ${missedChecksRef.current}회)`
+    }
+
     // 최종 출석 기록 저장
     const attendanceKey = `attendance_${user.id}_${courseId}`
     const saved = localStorage.getItem(attendanceKey)
@@ -581,11 +623,17 @@ export default function CoursePage() {
     setFaceDetected(false)
     setCodeInput('')
     setExitCodeInput('')
-    setWatchingMinutes(0)
-    setNeedsReconfirm(false)
+    setPresentSeconds(0)
+    setAwaySeconds(0)
+    setMissedChecks(0)
+    setPendingCheck(false)
     loadAttendanceData(user.id)
 
-    toast.success(`✅ 퇴장 완료!\n${attendanceRecord.class} (${attendanceRecord.enterTime} ~ ${exitTime})`)
+    if (completed) {
+      toast.success(`✅ 출석 인정! 끝까지 수강 완료\n${attendanceRecord.class} (참여율 ${Math.round(attendedRatio * 100)}%)`)
+    } else {
+      toast.error(`❌ 출석 미인정: 끝까지 수강하지 않았습니다.\n참여율 ${Math.round(attendedRatio * 100)}% (80% 이상 필요)`)
+    }
   }
 
   const getCategoryLabel = (category: string): string => {
@@ -629,13 +677,6 @@ export default function CoursePage() {
     toast.success(`🏥 공가 신청 완료!\n[${getCategoryLabel(absenceCategory!)}] ${absenceReason}`)
   }
 
-  const startPeriodicConfirm = () => {
-    // 5분마다 재확인 필요 표시 (간단히)
-    confirmIntervalRef.current = setInterval(() => {
-      setNeedsReconfirm(true)
-    }, 5 * 60 * 1000)
-  }
-
   const stopPeriodicConfirm = () => {
     if (confirmIntervalRef.current) {
       clearInterval(confirmIntervalRef.current)
@@ -643,26 +684,112 @@ export default function CoursePage() {
     }
   }
 
-  const handleReconfirm = () => {
-    // 재확인: 환경 확인 + 얼굴 인식
-    setEnvironmentOk(false)
-    setFaceDetected(false)
-    setNeedsReconfirm(false)
-    startCamera()
+  // ===== 수강 완료 추적 (와서 끝까지 들어야 출석 인정) =====
+
+  // 지금 실제로 강의 화면에 집중하고 있는지 (탭 활성 + 창 포커스)
+  const isHere = (): boolean =>
+    typeof document !== 'undefined' &&
+    document.visibilityState === 'visible' &&
+    document.hasFocus()
+
+  // 현재 구간의 경과 시간을 present/away 누적에 반영
+  const flushSegment = () => {
+    const now = Date.now()
+    const elapsed = now - segmentStartRef.current
+    if (elapsed > 0) {
+      if (isHereRef.current) {
+        presentMsRef.current += elapsed
+      } else {
+        awayMsRef.current += elapsed
+      }
+    }
+    segmentStartRef.current = now
   }
 
-  // 강의 진행 중 시간 경과 추적
+  // 입장 시 수강 추적 초기화
+  const startWatchTracking = () => {
+    presentMsRef.current = 0
+    awayMsRef.current = 0
+    missedChecksRef.current = 0
+    entryTsRef.current = getTrustedNow().getTime()
+    segmentStartRef.current = Date.now()
+    isHereRef.current = isHere()
+    setPresentSeconds(0)
+    setAwaySeconds(0)
+    setMissedChecks(0)
+    setCheckCycle((c) => c + 1) // 첫 랜덤 확인 스케줄
+  }
+
+  // 화면 이탈/복귀 추적: 자리를 비우면 away 로 누적되어 출석률이 깎인다
   useEffect(() => {
     if (!isAttended) return
 
-    const interval = setInterval(() => {
-      setWatchingMinutes((prev) => prev + 1)
-    }, 60000) // 1분마다
+    segmentStartRef.current = Date.now()
+    isHereRef.current = isHere()
 
-    return () => clearInterval(interval)
+    const onPresenceChange = () => {
+      flushSegment()
+      isHereRef.current = isHere()
+    }
+
+    document.addEventListener('visibilitychange', onPresenceChange)
+    window.addEventListener('blur', onPresenceChange)
+    window.addEventListener('focus', onPresenceChange)
+
+    const tick = setInterval(() => {
+      flushSegment()
+      setPresentSeconds(Math.floor(presentMsRef.current / 1000))
+      setAwaySeconds(Math.floor(awayMsRef.current / 1000))
+    }, 2000)
+
+    return () => {
+      document.removeEventListener('visibilitychange', onPresenceChange)
+      window.removeEventListener('blur', onPresenceChange)
+      window.removeEventListener('focus', onPresenceChange)
+      clearInterval(tick)
+    }
   }, [isAttended])
 
-  // 강의 종료 시 정기 확인 중지
+  // 랜덤 집중 확인 스케줄: 자리에 페이지만 열어두고 떠나는 것을 방지
+  useEffect(() => {
+    if (!isAttended || pendingCheck) return
+
+    // 평균 12분 ± 변동으로 다음 확인 예약 (약 7~17분)
+    const delay = AVG_CHECK_INTERVAL_MS * (0.6 + Math.random() * 0.8)
+    const timer = setTimeout(() => {
+      // 이미 퇴장 가능(수업 종료)하면 더 이상 확인하지 않음
+      if (canExit()) return
+      setPendingCheck(true)
+    }, delay)
+
+    return () => clearTimeout(timer)
+  }, [isAttended, checkCycle, pendingCheck])
+
+  // 집중 확인 응답 제한 시간: 미응답 시 미스 처리 + 페널티
+  useEffect(() => {
+    if (!pendingCheck) return
+
+    const timer = setTimeout(() => {
+      missedChecksRef.current += 1
+      setMissedChecks(missedChecksRef.current)
+      awayMsRef.current += CHECK_RESPONSE_WINDOW_MS // 미응답 구간은 이탈로 간주
+      setPendingCheck(false)
+      setCheckCycle((c) => c + 1)
+      toast.error('⚠️ 수강 확인에 응답하지 않았습니다.\n자리를 비우면 출석이 인정되지 않습니다.')
+    }, CHECK_RESPONSE_WINDOW_MS)
+
+    return () => clearTimeout(timer)
+  }, [pendingCheck])
+
+  // 학생이 집중 확인에 응답
+  const answerWatchCheck = () => {
+    flushSegment() // 응답 시점까지 present 반영
+    setPendingCheck(false)
+    setCheckCycle((c) => c + 1)
+    toast.success('✅ 수강 확인 완료')
+  }
+
+  // 강의 종료 시 추적 정리
   useEffect(() => {
     return () => {
       stopPeriodicConfirm()
@@ -1013,6 +1140,40 @@ export default function CoursePage() {
                       <p className="text-xs text-blue-700">⏱️ 서버 시간 동기화 중...</p>
                     )}
 
+                    {/* 수강 진행률 (와서 끝까지 들어야 출석 인정) */}
+                    <div className="bg-white border-2 border-indigo-300 p-3 rounded-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-sm font-bold text-indigo-900">📖 실제 수강 시간</p>
+                        <p className="text-sm font-bold text-indigo-700">
+                          {Math.floor(presentSeconds / 60)}분 {presentSeconds % 60}초
+                        </p>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div
+                          className="bg-indigo-500 h-3 rounded-full transition-all"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              (presentSeconds / Math.max(1, presentSeconds + awaySeconds)) * 100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      {awaySeconds > 0 && (
+                        <p className="text-xs text-red-600 font-semibold mt-2">
+                          ⚠️ 자리 비움 {Math.floor(awaySeconds / 60)}분 {awaySeconds % 60}초 — 자리를 비우면 출석이 인정되지 않습니다
+                        </p>
+                      )}
+                      {missedChecks > 0 && (
+                        <p className="text-xs text-red-600 font-semibold mt-1">
+                          🚨 수강 확인 미응답 {missedChecks}회
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        화면을 벗어나거나 다른 창으로 이동하면 수강 시간이 멈춥니다.
+                      </p>
+                    </div>
+
                     {!codeVerified ? (
                       <div className="bg-yellow-50 border-2 border-yellow-300 p-3 rounded-lg">
                         <p className="text-yellow-800 font-bold text-base mb-2">🔐 출석 확인 코드 입력</p>
@@ -1085,9 +1246,15 @@ export default function CoursePage() {
                         </button>
                       </>
                     ) : (
-                      <p className="text-blue-700 text-sm font-semibold text-center">
-                        강의에 집중해주세요.
-                      </p>
+                      <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-blue-800 text-sm font-bold">
+                          📚 강의에 집중해주세요.
+                        </p>
+                        <p className="text-blue-600 text-xs mt-1">
+                          수업 종료 시간이 되면 퇴장 버튼이 나타납니다.<br />
+                          끝까지 수강해야 출석으로 인정됩니다.
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -1193,6 +1360,29 @@ export default function CoursePage() {
           )}
         </div>
       </main>
+
+      {/* 랜덤 집중 확인 모달 (자리 비움 방지) */}
+      {pendingCheck && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center animate-pulse">
+            <p className="text-5xl mb-4">📢</p>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">수강 확인</h3>
+            <p className="text-gray-700 font-semibold mb-1">
+              지금 강의를 듣고 계신가요?
+            </p>
+            <p className="text-sm text-red-600 font-bold mb-6">
+              {Math.round(CHECK_RESPONSE_WINDOW_MS / 1000)}초 안에 누르지 않으면<br />
+              자리 비움으로 기록됩니다.
+            </p>
+            <button
+              onClick={answerWatchCheck}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl text-lg transition"
+            >
+              ✋ 네, 듣고 있어요!
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
