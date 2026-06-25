@@ -12,7 +12,8 @@ interface LiveSession {
   name: string
   course_id: string
   radius_m: number
-  require_gps: boolean
+  venue_lat: number
+  venue_lng: number
   ends_at: string
 }
 
@@ -21,7 +22,6 @@ export default function AdminLivePage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [courseId, setCourseId] = useState('')
   const [name, setName] = useState('')
-  const [requireGps, setRequireGps] = useState(true)
   const [venue, setVenue] = useState<{ lat: number; lng: number } | null>(null)
   const [venueLabel, setVenueLabel] = useState('')
   const [address, setAddress] = useState('')
@@ -31,11 +31,8 @@ export default function AdminLivePage() {
   const [creating, setCreating] = useState(false)
 
   const [session, setSession] = useState<LiveSession | null>(null)
-  const [code, setCode] = useState('------')
   const [records, setRecords] = useState<any[]>([])
   const [origin, setOrigin] = useState('')
-
-  const codeTimer = useRef<NodeJS.Timeout | null>(null)
   const recTimer = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
@@ -57,10 +54,7 @@ export default function AdminLivePage() {
   }, [router])
 
   const getLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error('이 기기는 위치를 지원하지 않습니다')
-      return
-    }
+    if (!navigator.geolocation) return toast.error('이 기기는 위치를 지원하지 않습니다')
     toast.loading('현재 위치 확인 중...', { id: 'loc' })
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -95,7 +89,7 @@ export default function AdminLivePage() {
 
   const startSession = async () => {
     if (!courseId || !name.trim()) return toast.error('강의와 이름을 입력하세요')
-    if (requireGps && !venue) return toast.error('현장 위치를 먼저 설정하세요')
+    if (!venue) return toast.error('현장 위치를 먼저 설정하세요')
 
     setCreating(true)
     try {
@@ -105,9 +99,8 @@ export default function AdminLivePage() {
         body: JSON.stringify({
           courseId,
           name,
-          requireGps,
-          venueLat: venue?.lat,
-          venueLng: venue?.lng,
+          venueLat: venue.lat,
+          venueLng: venue.lng,
           radiusM: radius,
           durationMin: duration,
         }),
@@ -118,7 +111,7 @@ export default function AdminLivePage() {
         return
       }
       setSession(data.session)
-      toast.success('🛰️ 라이브 출석 시작!')
+      toast.success('🛰️ 라이브 출석 시작! 이제 신경 안 쓰셔도 됩니다.')
     } catch {
       toast.error('네트워크 오류')
     } finally {
@@ -126,37 +119,27 @@ export default function AdminLivePage() {
     }
   }
 
-  // 코드/출석자 폴링
+  // 출석자 실시간 폴링
   useEffect(() => {
     if (!session) return
-
-    const pollCode = async () => {
-      try {
-        const res = await fetch(`/api/live/code?session=${session.id}`, { cache: 'no-store' })
-        const data = await res.json()
-        if (res.ok && data.code) setCode(data.code)
-      } catch {}
-    }
-    const pollRecords = async () => {
+    const poll = async () => {
       try {
         const res = await fetch(`/api/live/records?session=${session.id}`, { cache: 'no-store' })
         const data = await res.json()
         if (res.ok) setRecords(data.records || [])
       } catch {}
     }
-
-    pollCode()
-    pollRecords()
-    codeTimer.current = setInterval(pollCode, 3000)
-    recTimer.current = setInterval(pollRecords, 5000)
-
+    poll()
+    recTimer.current = setInterval(poll, 5000)
     return () => {
-      if (codeTimer.current) clearInterval(codeTimer.current)
       if (recTimer.current) clearInterval(recTimer.current)
     }
   }, [session])
 
   const attendUrl = session ? `${origin}/live?session=${session.id}` : ''
+  const presentCount = records.filter((r) => r.status === 'present').length
+
+  const fmt = (t: string | null) => (t ? new Date(t).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-')
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-100">
@@ -165,7 +148,7 @@ export default function AdminLivePage() {
           <button onClick={() => router.push('/admin')} className="flex items-center gap-2 text-blue-600 font-medium hover:underline">
             <ArrowLeft className="w-4 h-4" /> 돌아가기
           </button>
-          <h1 className="text-xl font-bold text-gray-900">🛰️ 라이브 출석 (서버 검증)</h1>
+          <h1 className="text-xl font-bold text-gray-900">🛰️ 위치 기반 자동 출석</h1>
           <span />
         </div>
       </nav>
@@ -174,7 +157,8 @@ export default function AdminLivePage() {
         {!session ? (
           /* ===== 세션 생성 ===== */
           <div className="bg-white rounded-2xl shadow p-8 max-w-xl mx-auto space-y-5">
-            <h2 className="text-2xl font-bold text-gray-900">새 라이브 출석 시작</h2>
+            <h2 className="text-2xl font-bold text-gray-900">새 출석 시작</h2>
+            <p className="text-sm text-gray-500">현장 위치만 정하면, 입장·퇴장은 학생 위치로 자동 처리됩니다.</p>
 
             <div>
               <label className="block text-sm font-bold text-gray-800 mb-2">강의</label>
@@ -204,58 +188,48 @@ export default function AdminLivePage() {
               />
             </div>
 
+            {/* 현장 위치 설정 */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-              <label className="flex items-center gap-2 font-bold text-gray-800">
-                <input type="checkbox" checked={requireGps} onChange={(e) => setRequireGps(e.target.checked)} className="w-5 h-5" />
-                📍 위치(GPS) 검증 사용
-              </label>
-              {requireGps && (
-                <>
-                  {/* 주소로 현장 설정 */}
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">주소로 현장 지정</label>
-                    <div className="flex gap-2">
-                      <input
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && geocodeAddress()}
-                        placeholder="예: 서울특별시 중구 세종대로 110"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-900 font-semibold text-sm"
-                      />
-                      <button
-                        onClick={geocodeAddress}
-                        disabled={geocoding}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 rounded-lg text-sm disabled:opacity-50 whitespace-nowrap"
-                      >
-                        {geocoding ? '검색중' : '🔍 설정'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-px bg-gray-200" />
-                    <span className="text-xs text-gray-400">또는</span>
-                    <div className="flex-1 h-px bg-gray-200" />
-                  </div>
-
-                  <button onClick={getLocation} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2">
-                    <MapPin className="w-4 h-4" /> 현재 내 위치로 설정
+              <p className="font-bold text-gray-800">📍 현장 위치 설정</p>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">주소로 지정</label>
+                <div className="flex gap-2">
+                  <input
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && geocodeAddress()}
+                    placeholder="예: 서울특별시 중구 세종대로 110"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-900 font-semibold text-sm"
+                  />
+                  <button onClick={geocodeAddress} disabled={geocoding} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 rounded-lg text-sm disabled:opacity-50 whitespace-nowrap">
+                    {geocoding ? '검색중' : '🔍 설정'}
                   </button>
+                </div>
+              </div>
 
-                  {venue && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <p className="text-xs text-green-800 font-bold">✅ 현장 설정됨</p>
-                      {venueLabel && <p className="text-xs text-green-700 mt-1 break-words">{venueLabel}</p>}
-                      <p className="text-xs text-green-600 mt-1">좌표: {venue.lat.toFixed(5)}, {venue.lng.toFixed(5)}</p>
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">허용 반경: {radius}m</label>
-                    <input type="range" min={30} max={500} step={10} value={radius} onChange={(e) => setRadius(Number(e.target.value))} className="w-full" />
-                    <p className="text-xs text-gray-500">실내/건물은 GPS 오차가 커서 100~200m 권장</p>
-                  </div>
-                </>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-400">또는</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              <button onClick={getLocation} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2">
+                <MapPin className="w-4 h-4" /> 현재 내 위치로 설정
+              </button>
+
+              {venue && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-xs text-green-800 font-bold">✅ 현장 설정됨</p>
+                  {venueLabel && <p className="text-xs text-green-700 mt-1 break-words">{venueLabel}</p>}
+                  <p className="text-xs text-green-600 mt-1">좌표: {venue.lat.toFixed(5)}, {venue.lng.toFixed(5)}</p>
+                </div>
               )}
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">허용 반경: {radius}m</label>
+                <input type="range" min={30} max={500} step={10} value={radius} onChange={(e) => setRadius(Number(e.target.value))} className="w-full" />
+                <p className="text-xs text-gray-500">실내/건물은 GPS 오차가 커서 100~200m 권장</p>
+              </div>
             </div>
 
             <div>
@@ -263,27 +237,24 @@ export default function AdminLivePage() {
               <input type="range" min={10} max={360} step={10} value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full" />
             </div>
 
-            <button
-              onClick={startSession}
-              disabled={creating}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl text-lg disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <Radio className="w-5 h-5" /> {creating ? '시작 중...' : '라이브 출석 시작'}
+            <button onClick={startSession} disabled={creating} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl text-lg disabled:opacity-50 flex items-center justify-center gap-2">
+              <Radio className="w-5 h-5" /> {creating ? '시작 중...' : '출석 시작 (이후 자동)'}
             </button>
           </div>
         ) : (
-          /* ===== 진행 중: 회전 코드 + 출석자 ===== */
+          /* ===== 진행 중 ===== */
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-2xl shadow-xl p-8 text-center text-white">
-              <p className="text-lg font-semibold opacity-90">{session.name}</p>
-              <p className="text-sm opacity-70 mb-6">현장 화면에 띄워주세요 · 15초마다 갱신</p>
-              <p className="text-7xl md:text-8xl font-black tracking-widest tabular-nums my-6">{code}</p>
-              <p className="text-sm opacity-80">{session.require_gps ? `📍 현장 반경 ${session.radius_m}m 안에서만 인정` : '위치 검증 없음'}</p>
-
-              <div className="bg-white rounded-xl p-4 mt-6 inline-block">
-                {attendUrl && <QRCodeSVG value={attendUrl} size={160} level="M" />}
+              <p className="text-lg font-semibold">{session.name}</p>
+              <p className="text-sm opacity-80 mb-4">학생은 이 QR로 접속만 하면 자동 출석됩니다</p>
+              <div className="bg-white rounded-xl p-4 inline-block">
+                {attendUrl && <QRCodeSVG value={attendUrl} size={200} level="M" />}
               </div>
-              <p className="text-xs opacity-80 mt-3">학생: QR 스캔 또는 {origin}/live</p>
+              <p className="text-xs opacity-80 mt-4">또는 {origin}/live 접속</p>
+              <div className="bg-white/15 rounded-lg p-3 mt-5 text-sm">
+                📍 현장 반경 <b>{session.radius_m}m</b> 안에서만 인정 · 벗어나면 자동 퇴장
+              </div>
+              <p className="text-xs opacity-70 mt-4">✅ 이제 관리자는 신경 쓸 게 없습니다. 자동으로 출·퇴장이 기록됩니다.</p>
             </div>
 
             <div className="bg-white rounded-2xl shadow p-6">
@@ -291,25 +262,36 @@ export default function AdminLivePage() {
                 <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <Users className="w-5 h-5" /> 실시간 출석
                 </h3>
-                <span className="bg-green-100 text-green-800 font-bold px-3 py-1 rounded-full">{records.length}명</span>
+                <div className="flex gap-2">
+                  <span className="bg-green-100 text-green-800 font-bold px-3 py-1 rounded-full text-sm">현장 {presentCount}</span>
+                  <span className="bg-gray-100 text-gray-700 font-bold px-3 py-1 rounded-full text-sm">전체 {records.length}</span>
+                </div>
               </div>
-              <div className="space-y-2 max-h-[420px] overflow-y-auto">
+              <div className="space-y-2 max-h-[440px] overflow-y-auto">
                 {records.length === 0 ? (
                   <p className="text-gray-400 text-center py-12">아직 출석한 사람이 없습니다</p>
                 ) : (
                   records.map((r, i) => (
-                    <div key={i} className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-4 py-2">
-                      <span className="font-semibold text-gray-900">✅ {r.user_name || r.user_id}</span>
-                      <span className="text-xs text-gray-500">
-                        {r.distance_m != null ? `${r.distance_m}m · ` : ''}
-                        {new Date(r.created_at).toLocaleTimeString('ko-KR')}
+                    <div key={i} className={`flex items-center justify-between rounded-lg px-4 py-2 border ${
+                      r.status === 'present' ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'
+                    }`}>
+                      <div>
+                        <span className="font-semibold text-gray-900">
+                          {r.status === 'present' ? '🟢' : '🟠'} {r.user_name || r.user_id}
+                        </span>
+                        <p className="text-xs text-gray-500">
+                          입장 {fmt(r.entry_at)}{r.status === 'left' ? ` · 퇴장 ${fmt(r.exit_at)}` : ''}
+                        </p>
+                      </div>
+                      <span className={`text-xs font-bold ${r.status === 'present' ? 'text-green-700' : 'text-orange-700'}`}>
+                        {r.status === 'present' ? '현장' : '퇴장'}
                       </span>
                     </div>
                   ))
                 )}
               </div>
               <button onClick={() => setSession(null)} className="w-full mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 rounded-lg">
-                닫기 (세션은 계속 유효)
+                닫기 (출석은 계속 자동 진행)
               </button>
             </div>
           </div>

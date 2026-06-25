@@ -12,10 +12,13 @@ export async function GET(req: Request) {
 
   const { data, error } = await db
     .from('attendance_records')
-    .select('user_name, user_id, distance_m, created_at')
+    .select('user_name, user_id, status, entry_at, exit_at, last_seen_at, entry_distance_m')
     .eq('session_id', sessionId)
-    .order('created_at', { ascending: false })
+    .order('entry_at', { ascending: false })
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json({ records: data, count: data?.length || 0 })
+
+  const present = (data || []).filter((r: any) => r.status === 'present').length
+  const left = (data || []).filter((r: any) => r.status === 'left').length
+  return Response.json({ records: data, count: data?.length || 0, present, left })
 }

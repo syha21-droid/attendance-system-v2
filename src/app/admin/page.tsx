@@ -338,8 +338,8 @@ export default function AdminPage() {
           className="w-full mt-8 bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800 text-white rounded-xl shadow-lg p-6 text-left transition flex items-center justify-between"
         >
           <div>
-            <p className="text-xl font-bold">🛰️ 라이브 출석 시작 (서버 검증)</p>
-            <p className="text-sm opacity-90 mt-1">15초 회전코드 + GPS 위치 + 중복 차단 — 조작 불가능한 현장 출석</p>
+            <p className="text-xl font-bold">🛰️ 위치 기반 자동 출석 시작</p>
+            <p className="text-sm opacity-90 mt-1">현장 위치만 설정 → 학생 입·퇴장 자동 기록. 관리자는 신경 쓸 게 없습니다</p>
           </div>
           <span className="text-3xl">→</span>
         </button>
