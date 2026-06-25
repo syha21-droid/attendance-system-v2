@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { LogOut, Clock, MapPin, Navigation, Crosshair, Wifi } from 'lucide-react'
@@ -180,25 +180,44 @@ export default function CoursePage() {
     setPageLoaded(true)
   }, [courseId, router, setUser])
 
-  // 관리자가 시작한 이 강의의 현장 위치 세션 조회 (30초마다 갱신)
-  useEffect(() => {
-    let active = true
-    const load = async () => {
+  // 진행 중인 출석 세션 선택 — 기기마다 강의 ID가 달라도 찾아낸다
+  //  1) 같은 강의 ID  2) 세션 이름에 강의명 포함  3) 진행 중인 세션(보통 1개)
+  const [sessionRefreshing, setSessionRefreshing] = useState(false)
+  const pickSession = useCallback(
+    (sessions: any[]) => {
+      if (!sessions || sessions.length === 0) return null
+      return (
+        sessions.find((x) => x.course_id === courseId) ||
+        (course?.name ? sessions.find((x) => (x.name || '').includes(course.name)) : null) ||
+        sessions[0]
+      )
+    },
+    [courseId, course]
+  )
+
+  const refreshSession = useCallback(
+    async (manual = false) => {
+      if (manual) setSessionRefreshing(true)
       try {
-        const res = await fetch(`/api/live/session?courseId=${courseId}`, { cache: 'no-store' })
+        // courseId 없이 = 진행 중인 모든 세션 (ends_at 미래)
+        const res = await fetch(`/api/live/session`, { cache: 'no-store' })
         const data = await res.json()
-        if (active && res.ok) setLiveSession((data.sessions && data.sessions[0]) || null)
+        if (res.ok) setLiveSession(pickSession(data.sessions || []))
       } catch {
         /* 위치 출석 미설정/오류여도 페이지는 동작 */
+      } finally {
+        if (manual) setSessionRefreshing(false)
       }
-    }
-    load()
-    const t = setInterval(load, 30000)
-    return () => {
-      active = false
-      clearInterval(t)
-    }
-  }, [courseId])
+    },
+    [pickSession]
+  )
+
+  // 최초 + 20초마다 자동 갱신
+  useEffect(() => {
+    refreshSession()
+    const t = setInterval(() => refreshSession(), 20000)
+    return () => clearInterval(t)
+  }, [refreshSession])
 
   // 1초 타이머 (마감 카운트다운 / 위치 갱신 경과 표시)
   useEffect(() => {
@@ -571,7 +590,14 @@ export default function CoursePage() {
                 <p className="text-4xl mb-2">📡</p>
                 <p className="text-gray-700 font-bold text-sm">아직 출석이 시작되지 않았어요</p>
                 <p className="text-gray-500 text-xs mt-1">관리자가 현장 위치 출석을 시작하면<br />이 화면에서 바로 출석할 수 있어요.</p>
-                <p className="text-[11px] text-gray-400 mt-3">⟳ 30초마다 자동으로 확인하고 있어요</p>
+                <button
+                  onClick={() => refreshSession(true)}
+                  disabled={sessionRefreshing}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-2 px-5 rounded-lg disabled:opacity-50"
+                >
+                  {sessionRefreshing ? '확인 중...' : '🔄 지금 다시 확인'}
+                </button>
+                <p className="text-[11px] text-gray-400 mt-3">⟳ 20초마다 자동으로 확인하고 있어요</p>
               </div>
             ) : isAttended ? (
               /* 출석 인정 완료 — 검증 상세 */
