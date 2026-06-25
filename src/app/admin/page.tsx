@@ -340,8 +340,8 @@ export default function AdminPage() {
               <p className="text-sm text-purple-700">강의별 출석 통계를 확인합니다</p>
             </button>
             <button onClick={() => router.push('/admin/attendance')} className="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition text-left cursor-pointer">
-              <p className="font-semibold text-blue-900">📋 출석 현황 조회</p>
-              <p className="text-sm text-blue-700">학생별 출석 현황을 조회합니다</p>
+              <p className="font-semibold text-blue-900">📋 출석 현황 조회 (입·퇴장 시간)</p>
+              <p className="text-sm text-blue-700">누가 몇 시에 입·퇴장했는지, 찍고 도망간 미인정 기록 확인</p>
             </button>
             <button onClick={() => router.push('/admin/students')} className="p-4 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition text-left cursor-pointer">
               <p className="font-semibold text-green-900">👥 학생 관리 / 수강 변경</p>
