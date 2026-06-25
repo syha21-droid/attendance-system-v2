@@ -22,8 +22,17 @@ export default function CoursePage() {
   const user = useStore((state) => state.user)
   const setUser = useStore((state) => state.setUser)
 
-  const [course, setCourse] = useState<Course | null>(null)
-  const [pageLoaded, setPageLoaded] = useState(false) // 초기 로드 완료 여부
+  // 처음 렌더부터 localStorage를 바로 읽어 깜빡임 없이 즉시 표시
+  const [course, setCourse] = useState<Course | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const s = localStorage.getItem('courses')
+      return s ? (JSON.parse(s).find((c: Course) => c.id === courseId) || null) : null
+    } catch {
+      return null
+    }
+  })
+  const [pageLoaded, setPageLoaded] = useState(() => typeof window !== 'undefined')
   const [attendances, setAttendances] = useState(0)
   const [lateCount, setLateCount] = useState(0)
   const [absentCount, setAbsentCount] = useState(0)

@@ -33,11 +33,20 @@ export default function CourseDetailPage() {
   const user = useStore((state) => state.user)
   const setUser = useStore((state) => state.setUser)
 
-  const [course, setCourse] = useState<Course | null>(null)
+  // 처음 렌더부터 localStorage를 바로 읽어 깜빡임 없이 즉시 표시
+  const [course, setCourse] = useState<Course | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const s = localStorage.getItem('courses')
+      return s ? (JSON.parse(s).find((c: Course) => c.id === courseId) || null) : null
+    } catch {
+      return null
+    }
+  })
   const [materials, setMaterials] = useState<any[]>([])
   const [students, setStudents] = useState<StudentAttendance[]>([])
   const [newMaterialName, setNewMaterialName] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => typeof window === 'undefined')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [instructorName, setInstructorName] = useState('')
   const [isEditingInstructor, setIsEditingInstructor] = useState(false)
