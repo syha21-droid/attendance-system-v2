@@ -2,8 +2,6 @@ import { getSupabaseAdmin } from '@/lib/supabaseAdmin'
 
 export const dynamic = 'force-dynamic'
 
-const GRACE_MS = 3 * 60000
-
 // 운영자/관리자: 출석자 목록 + 최종 인정 판정
 export async function GET(req: Request) {
   const db = getSupabaseAdmin()
@@ -20,7 +18,7 @@ export async function GET(req: Request) {
 
   const { data, error } = await db
     .from('attendance_records')
-    .select('user_name, user_id, status, entry_at, exit_at, last_seen_at, entry_distance_m, entry_lat, entry_lng')
+    .select('user_name, user_id, status, entry_at, exit_at, last_seen_at, entry_distance_m, entry_lat, entry_lng, exit_lat, exit_lng')
     .eq('session_id', sessionId)
     .order('entry_at', { ascending: false })
 
@@ -30,17 +28,11 @@ export async function GET(req: Request) {
   const endMs = session ? new Date(session.ends_at).getTime() : now
   const ended = now > endMs
 
-  // final: present(현장) | left(이탈) | accepted(인정) | left_early(조퇴/미인정)
+  // final: present(출석·수업중) | accepted(인정) | left_early(퇴장 안 함=미인정)
+  // 인정 = 현장에서 출석(checkin) + 수업 종료 후 현장에서 퇴장(checkout) 모두 완료(status=completed)
   const records = (data || []).map((r: any) => {
     let final = r.status
-    if (ended) {
-      if (r.status === 'completed') final = 'accepted'
-      else if (r.status === 'left_early') final = 'left_early'
-      else {
-        const lastSeen = new Date(r.last_seen_at).getTime()
-        final = lastSeen >= endMs - GRACE_MS && r.status !== 'left' ? 'accepted' : 'left_early'
-      }
-    }
+    if (ended) final = r.status === 'completed' ? 'accepted' : 'left_early'
     return { ...r, final }
   })
 

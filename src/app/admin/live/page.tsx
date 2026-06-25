@@ -292,16 +292,28 @@ export default function AdminLivePage() {
                             입장 {fmt(r.entry_at)}{r.exit_at ? ` · 퇴장 ${fmt(r.exit_at)}` : ''}
                             {r.entry_distance_m != null ? ` · 약 ${r.entry_distance_m}m` : ''}
                           </p>
-                          {r.entry_lat != null && r.entry_lng != null && (
-                            <a
-                              href={`https://www.google.com/maps?q=${r.entry_lat},${r.entry_lng}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-600 hover:underline font-medium"
-                            >
-                              🗺️ 찍은 위치 보기
-                            </a>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {r.entry_lat != null && r.entry_lng != null && (
+                              <a
+                                href={`https://www.google.com/maps?q=${r.entry_lat},${r.entry_lng}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-600 hover:underline font-medium"
+                              >
+                                🗺️ 출석 위치
+                              </a>
+                            )}
+                            {r.exit_lat != null && r.exit_lng != null && (
+                              <a
+                                href={`https://www.google.com/maps?q=${r.exit_lat},${r.exit_lng}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-green-600 hover:underline font-medium"
+                              >
+                                🚪 퇴장 위치
+                              </a>
+                            )}
+                          </div>
                         </div>
                         <span className={`text-xs font-bold ${lb.cls}`}>{lb.text}</span>
                       </div>

@@ -24,7 +24,7 @@ export async function GET(req: Request) {
 
   const { data: records } = await db
     .from('attendance_records')
-    .select('session_id, user_id, user_name, status, entry_at, exit_at, last_seen_at, entry_distance_m, entry_lat, entry_lng')
+    .select('session_id, user_id, user_name, status, entry_at, exit_at, last_seen_at, entry_distance_m, entry_lat, entry_lng, exit_lat, exit_lng')
     .in('session_id', sessionIds)
     .order('entry_at', { ascending: false })
 
@@ -32,21 +32,17 @@ export async function GET(req: Request) {
     const s: any = sessMap.get(r.session_id)
     const endMs = s ? new Date(s.ends_at).getTime() : 0
     const ended = Date.now() > endMs
+    // 인정 = 출석(checkin) + 종료 후 현장 퇴장(checkout) 완료(status=completed)
     let final = r.status
-    if (ended) {
-      if (r.status === 'completed') final = 'accepted'
-      else if (r.status === 'left_early') final = 'left_early'
-      else {
-        const lastSeen = new Date(r.last_seen_at).getTime()
-        final = lastSeen >= endMs - 3 * 60000 && r.status !== 'left' ? 'accepted' : 'left_early'
-      }
-    }
+    if (ended) final = r.status === 'completed' ? 'accepted' : 'left_early'
     return {
       userId: r.user_id,
       userName: r.user_name,
       distance: r.entry_distance_m,
       myLat: r.entry_lat,
       myLng: r.entry_lng,
+      exitLat: r.exit_lat,
+      exitLng: r.exit_lng,
       venueLat: s?.venue_lat,
       venueLng: s?.venue_lng,
       sessionName: s?.name,

@@ -3,25 +3,24 @@ import { distanceMeters } from '@/lib/rotatingCode'
 
 export const dynamic = 'force-dynamic'
 
-const GRACE_MS = 3 * 60000 // 종료 3분 전부터 '끝까지 있었음'으로 인정
-
-// entry_lat/entry_lng 컬럼 마이그레이션 전이면 좌표 없이도 출석되게 판별
+// entry_lat/lng·exit_lat/lng 컬럼 마이그레이션 전이면 좌표 없이도 동작하게 판별
 function isMissingLocColumn(error: any): boolean {
   const msg = (error?.message || '').toLowerCase()
   return (
     error?.code === '42703' ||
     error?.code === 'PGRST204' ||
     msg.includes('entry_lat') ||
-    msg.includes('entry_lng')
+    msg.includes('entry_lng') ||
+    msg.includes('exit_lat') ||
+    msg.includes('exit_lng')
   )
 }
 
 /**
- * 위치 핑 — 행동(action)별로 처리
- *  probe     : 현장 안/밖만 확인 (기록 안 함) → 출석 버튼 활성화 판단용
- *  checkin   : 현장 안일 때만 출석 시작 (와서 누르기)
- *  heartbeat : 주기적 위치 확인 → 현장 벗어나면 자동 '조퇴(left)' 처리
- *  checkout  : 수업 종료 후에만 정상 퇴장 (완료)
+ * 위치 핑 — 출석/퇴장 두 시점에만 위치 확인 (연속추적 없음 → 중간에 창 꺼도 됨)
+ *  probe    : 현재 위치(현장 안/밖) + 내 출석 기록 상태 조회 (새로고침/재접속 시 화면 복원)
+ *  checkin  : 현장 안일 때만 출석 시작 (출석 위치 기록)
+ *  checkout : 수업 종료 후 현장 안일 때만 퇴장 (퇴장 위치 기록 → 출석 인정)
  */
 export async function POST(req: Request) {
   const db = getSupabaseAdmin()
@@ -59,12 +58,7 @@ export async function POST(req: Request) {
 
   const base = { ended, endsAt: session.ends_at, distance, radius: session.radius_m, inRange }
 
-  // ---- probe: 위치만 확인 ----
-  if (action === 'probe') {
-    return Response.json({ ok: true, ...base })
-  }
-
-  // 기존 기록
+  // 기존 기록 (probe 포함 항상 조회 → 창을 닫았다 다시 들어와도 상태/위치 복원)
   const { data: rec } = await db
     .from('attendance_records')
     .select('*')
@@ -72,7 +66,22 @@ export async function POST(req: Request) {
     .eq('user_id', String(userId))
     .maybeSingle()
 
-  // ---- checkin: 현장에서만 출석 시작 ----
+  // 기록에 저장된 출석/퇴장 좌표를 응답에 실어 화면 복원에 사용
+  const recCoords = rec
+    ? {
+        myLat: typeof rec.entry_lat === 'number' ? rec.entry_lat : undefined,
+        myLng: typeof rec.entry_lng === 'number' ? rec.entry_lng : undefined,
+        exitLat: typeof rec.exit_lat === 'number' ? rec.exit_lat : undefined,
+        exitLng: typeof rec.exit_lng === 'number' ? rec.exit_lng : undefined,
+      }
+    : {}
+
+  // ---- probe: 현재 위치 + 내 기록 상태 ----
+  if (action === 'probe') {
+    return Response.json({ ok: true, ...base, recordStatus: rec?.status ?? null, ...recCoords })
+  }
+
+  // ---- checkin: 현장에서만 출석 시작 (출석 위치 기록) ----
   if (action === 'checkin') {
     if (ended) return Response.json({ ok: false, ...base, error: '⏰ 이미 종료된 출석입니다' })
     if (!hasLoc) return Response.json({ ok: false, ...base, error: '📍 위치 권한을 허용하세요' })
@@ -114,34 +123,32 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, ...base, status: 'present', myLat: lat, myLng: lng })
   }
 
-  // ---- heartbeat: 현장 유지/이탈 감지 ----
-  if (action === 'heartbeat') {
-    if (!rec) return Response.json({ ok: true, ...base, status: 'none' })
-    if (inRange) {
-      await db.from('attendance_records').update({ last_seen_at: nowIso, status: 'present', exit_at: null }).eq('id', rec.id)
-      return Response.json({ ok: true, ...base, status: 'present' })
-    } else {
-      if (rec.status === 'present') {
-        await db.from('attendance_records').update({ status: 'left', exit_at: nowIso }).eq('id', rec.id)
-      }
-      return Response.json({ ok: true, ...base, status: 'left', error: '⚠️ 현장을 벗어났습니다. 돌아오지 않으면 출석이 인정되지 않습니다.' })
-    }
-  }
-
-  // ---- checkout: 수업 종료 후에만 정상 퇴장 ----
+  // ---- checkout: 수업 종료 후 현장에서만 퇴장 → 출석 인정 (퇴장 위치 기록) ----
   if (action === 'checkout') {
+    if (!rec) return Response.json({ ok: false, ...base, error: '출석 기록이 없습니다' })
     if (!ended) {
       return Response.json({ ok: false, ...base, error: '🔒 수업이 종료되어야 퇴장할 수 있습니다' })
     }
-    if (!rec) return Response.json({ ok: false, ...base, error: '출석 기록이 없습니다' })
-    // 종료 시점까지 현장에 있었는지로 인정 판정
-    const lastSeen = new Date(rec.last_seen_at).getTime()
-    const stayed = lastSeen >= endMs - GRACE_MS && rec.status !== 'left'
-    await db.from('attendance_records').update({
-      status: stayed ? 'completed' : 'left_early',
-      exit_at: rec.exit_at || nowIso,
-    }).eq('id', rec.id)
-    return Response.json({ ok: true, ...base, status: stayed ? 'completed' : 'left_early' })
+    if (!hasLoc) return Response.json({ ok: false, ...base, error: '📍 위치 권한을 허용하세요' })
+    if (!inRange) {
+      return Response.json({ ok: false, ...base, error: `📍 현장에서만 퇴장할 수 있습니다 (약 ${distance}m, 허용 ${session.radius_m}m)` })
+    }
+    const updateRow: any = { status: 'completed', exit_at: nowIso, exit_lat: lat, exit_lng: lng }
+    let { error } = await db.from('attendance_records').update(updateRow).eq('id', rec.id)
+    if (error && isMissingLocColumn(error)) {
+      delete updateRow.exit_lat
+      delete updateRow.exit_lng
+      await db.from('attendance_records').update(updateRow).eq('id', rec.id)
+    }
+    return Response.json({
+      ok: true,
+      ...base,
+      status: 'completed',
+      myLat: typeof rec.entry_lat === 'number' ? rec.entry_lat : undefined,
+      myLng: typeof rec.entry_lng === 'number' ? rec.entry_lng : undefined,
+      exitLat: lat,
+      exitLng: lng,
+    })
   }
 
   return Response.json({ ok: false, error: '알 수 없는 action' }, { status: 400 })

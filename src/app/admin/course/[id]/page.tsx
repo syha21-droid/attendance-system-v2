@@ -21,6 +21,8 @@ interface LocationInfo {
   distance: number | null
   myLat: number | null
   myLng: number | null
+  exitLat: number | null
+  exitLng: number | null
   venueLat: number | null
   venueLng: number | null
   entryAt: string
@@ -236,6 +238,8 @@ export default function CourseDetailPage() {
                 distance: r.distance,
                 myLat: r.myLat,
                 myLng: r.myLng,
+                exitLat: r.exitLat,
+                exitLng: r.exitLng,
                 venueLat: r.venueLat,
                 venueLng: r.venueLng,
                 entryAt: r.entryAt,
@@ -828,25 +832,37 @@ export default function CourseDetailPage() {
                                   {locStatusLabel(student.location.final).text}
                                   {student.location.distance != null ? ` · 약 ${student.location.distance}m` : ''}
                                 </span>
-                                {student.location.myLat != null && student.location.myLng != null ? (
-                                  <a
-                                    href={`https://www.google.com/maps?q=${student.location.myLat},${student.location.myLng}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-600 hover:underline font-medium"
-                                  >
-                                    🗺️ 찍은 위치 보기
-                                  </a>
-                                ) : student.location.venueLat != null && student.location.venueLng != null ? (
-                                  <a
-                                    href={`https://www.google.com/maps?q=${student.location.venueLat},${student.location.venueLng}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-gray-500 hover:underline"
-                                  >
-                                    🏫 현장 위치
-                                  </a>
-                                ) : null}
+                                <div className="flex items-center gap-2">
+                                  {student.location.myLat != null && student.location.myLng != null ? (
+                                    <a
+                                      href={`https://www.google.com/maps?q=${student.location.myLat},${student.location.myLng}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-600 hover:underline font-medium"
+                                    >
+                                      🗺️ 출석
+                                    </a>
+                                  ) : student.location.venueLat != null && student.location.venueLng != null ? (
+                                    <a
+                                      href={`https://www.google.com/maps?q=${student.location.venueLat},${student.location.venueLng}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-gray-500 hover:underline"
+                                    >
+                                      🏫 현장
+                                    </a>
+                                  ) : null}
+                                  {student.location.exitLat != null && student.location.exitLng != null && (
+                                    <a
+                                      href={`https://www.google.com/maps?q=${student.location.exitLat},${student.location.exitLng}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-green-600 hover:underline font-medium"
+                                    >
+                                      🚪 퇴장
+                                    </a>
+                                  )}
+                                </div>
                               </div>
                             ) : (
                               <span className="text-gray-300">-</span>
