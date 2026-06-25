@@ -137,9 +137,19 @@ export default function AdminLivePage() {
   }, [session])
 
   const attendUrl = session ? `${origin}/live?session=${session.id}` : ''
-  const presentCount = records.filter((r) => r.status === 'present').length
+  const presentCount = records.filter((r) => (r.final || r.status) === 'present').length
+  const acceptedCount = records.filter((r) => r.final === 'accepted').length
 
   const fmt = (t: string | null) => (t ? new Date(t).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-')
+
+  // 최종 표시 라벨
+  const label = (r: any): { text: string; cls: string; dot: string } => {
+    const s = r.final || r.status
+    if (s === 'accepted') return { text: '인정', cls: 'text-green-700', dot: '🟢' }
+    if (s === 'present') return { text: '현장', cls: 'text-blue-700', dot: '🔵' }
+    if (s === 'left') return { text: '이탈', cls: 'text-orange-700', dot: '🟠' }
+    return { text: '조퇴(미인정)', cls: 'text-red-700', dot: '🔴' }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-100">
@@ -264,6 +274,7 @@ export default function AdminLivePage() {
                 </h3>
                 <div className="flex gap-2">
                   <span className="bg-green-100 text-green-800 font-bold px-3 py-1 rounded-full text-sm">현장 {presentCount}</span>
+                  {acceptedCount > 0 && <span className="bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full text-sm">인정 {acceptedCount}</span>}
                   <span className="bg-gray-100 text-gray-700 font-bold px-3 py-1 rounded-full text-sm">전체 {records.length}</span>
                 </div>
               </div>
@@ -271,23 +282,20 @@ export default function AdminLivePage() {
                 {records.length === 0 ? (
                   <p className="text-gray-400 text-center py-12">아직 출석한 사람이 없습니다</p>
                 ) : (
-                  records.map((r, i) => (
-                    <div key={i} className={`flex items-center justify-between rounded-lg px-4 py-2 border ${
-                      r.status === 'present' ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'
-                    }`}>
-                      <div>
-                        <span className="font-semibold text-gray-900">
-                          {r.status === 'present' ? '🟢' : '🟠'} {r.user_name || r.user_id}
-                        </span>
-                        <p className="text-xs text-gray-500">
-                          입장 {fmt(r.entry_at)}{r.status === 'left' ? ` · 퇴장 ${fmt(r.exit_at)}` : ''}
-                        </p>
+                  records.map((r, i) => {
+                    const lb = label(r)
+                    return (
+                      <div key={i} className="flex items-center justify-between rounded-lg px-4 py-2 border bg-gray-50 border-gray-200">
+                        <div>
+                          <span className="font-semibold text-gray-900">{lb.dot} {r.user_name || r.user_id}</span>
+                          <p className="text-xs text-gray-500">
+                            입장 {fmt(r.entry_at)}{r.exit_at ? ` · 퇴장 ${fmt(r.exit_at)}` : ''}
+                          </p>
+                        </div>
+                        <span className={`text-xs font-bold ${lb.cls}`}>{lb.text}</span>
                       </div>
-                      <span className={`text-xs font-bold ${r.status === 'present' ? 'text-green-700' : 'text-orange-700'}`}>
-                        {r.status === 'present' ? '현장' : '퇴장'}
-                      </span>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
               <button onClick={() => setSession(null)} className="w-full mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 rounded-lg">
