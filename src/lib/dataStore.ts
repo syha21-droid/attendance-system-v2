@@ -124,6 +124,22 @@ export async function apiSignup(payload: {
   }
 }
 
+/** 외부(일반인) 자유가입 — member_type='external'. 내부 가입과 분리된 문. */
+export async function apiSignupExternal(payload: {
+  id: string
+  email: string
+  password: string
+  name: string
+  phone?: string
+}): Promise<{ user?: any; error?: string; nodb?: boolean }> {
+  try {
+    const res = await fetch('/api/auth/signup-external', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(payload) })
+    return await res.json()
+  } catch {
+    return { nodb: true }
+  }
+}
+
 /** 로그인 (서버). user 없으면 호출측이 localStorage 폴백. */
 export async function apiLogin(email: string, password: string): Promise<{ user?: any; nodb?: boolean }> {
   try {

@@ -368,6 +368,10 @@ export default function AdminPage() {
               <p className="font-semibold text-yellow-900">⏰ 지각 관리</p>
               <p className="text-sm text-yellow-700">지각 학생을 관리합니다</p>
             </button>
+            <button onClick={() => router.push('/admin/special')} className="p-4 bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition text-left cursor-pointer">
+              <p className="font-semibold text-orange-900">🎟️ 특강 관리</p>
+              <p className="text-sm text-orange-700">특강 목록·신청 현황·수강권 부여·사원 명단</p>
+            </button>
           </div>
         </div>
       </main>
