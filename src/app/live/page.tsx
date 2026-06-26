@@ -46,6 +46,7 @@ function LiveInner() {
   const [distance, setDistance] = useState<number | null>(null)
   const [radius, setRadius] = useState<number | null>(null)
   const [endsAt, setEndsAt] = useState<string | null>(null)
+  const [nowTick, setNowTick] = useState(Date.now())
   const [marked, setMarked] = useState<{ lat: number; lng: number } | null>(null)      // 출석을 찍은 위치
   const [markedExit, setMarkedExit] = useState<{ lat: number; lng: number } | null>(null) // 퇴장을 찍은 위치
   const [msg, setMsg] = useState('')
@@ -105,11 +106,21 @@ function LiveInner() {
   const applyProbe = (d: any) => {
     if (d.recordStatus === 'completed') setPhase('accepted')
     else if (d.recordStatus === 'left_early') setPhase('left_early')
-    else if (d.recordStatus === 'present' || d.recordStatus === 'left') setPhase(d.ended ? 'can_exit' : 'attending')
+    else if (d.recordStatus === 'present' || d.recordStatus === 'left') {
+      if (d.ended) setPhase('left_early')           // 종료됐는데 미퇴장 → 미인정
+      else if (d.canCheckout) setPhase('can_exit')  // 종료 5분 전 → 퇴장 가능
+      else setPhase('attending')                     // 수업 중
+    }
     else if (d.ended) setPhase('ended')
     else if (d.inRange) setPhase('ready')
     else setPhase('too_far')
   }
+
+  // 1초 타이머 (attending 단계 카운트다운)
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
 
   // 최초 위치 확인 (probe)
   useEffect(() => {
@@ -121,15 +132,22 @@ function LiveInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, sessionId])
 
-  // 수업 중(attending) → 종료 시각이 지나면 자동으로 '퇴장 가능'으로 전환
+  // 수업 중(attending) → 종료 5분 전이 되면 자동으로 '퇴장 가능'으로 전환
+  // 종료가 지나버리면 미인정(left_early)으로 전환
   useEffect(() => {
     if (phase !== 'attending' || !endsAt) return
     const end = new Date(endsAt).getTime()
+    const CHECKOUT_WINDOW_MS = 5 * 60 * 1000
     const check = () => {
-      if (Date.now() >= end) setPhase('can_exit')
+      const now = Date.now()
+      if (now >= end) {
+        setPhase('left_early') // 창 열어 뒀는데 퇴장 못 함 → 미인정
+      } else if (end - now <= CHECKOUT_WINDOW_MS) {
+        setPhase('can_exit')   // 5분 전 → 퇴장 버튼 활성
+      }
     }
     check()
-    const t = setInterval(check, 10000)
+    const t = setInterval(check, 5000)
     return () => clearInterval(t)
   }, [phase, endsAt])
 
@@ -140,7 +158,8 @@ function LiveInner() {
     setBusy(false)
     if (!d) return
     if (d.ok) {
-      setPhase(d.ended ? 'can_exit' : 'attending')
+      if (d.canCheckout) setPhase('can_exit')   // 이미 5분 전 진입
+      else setPhase('attending')
     } else {
       setMsg(d.error || '출석할 수 없습니다')
       if (!d.inRange) setPhase('too_far')
@@ -165,9 +184,10 @@ function LiveInner() {
     if (d.ok) {
       setPhase('accepted')
     } else {
-      // 현장 밖이면 can_exit 유지하여 현장 복귀 후 재시도, 아직 종료 전이면 수업중으로
       setMsg(d.error || '퇴장할 수 없습니다')
-      if (!d.ended) setPhase('attending')
+      if (d.ended) setPhase('left_early')        // 퇴장 시간 지남 → 미인정
+      else if (!d.canCheckout) setPhase('attending') // 아직 5분 안 됨
+      // 현장 밖 → can_exit 유지 (현장 복귀 후 재시도)
     }
   }
 
@@ -182,6 +202,8 @@ function LiveInner() {
   }
 
   const endTimeStr = endsAt ? new Date(endsAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : ''
+  const msToEnd = endsAt ? new Date(endsAt).getTime() - nowTick : null
+  const minToCheckout = msToEnd != null ? Math.ceil((msToEnd - 5 * 60 * 1000) / 60000) : null
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-8">
@@ -226,15 +248,22 @@ function LiveInner() {
           <>
             <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto mb-3" />
             <p className="text-2xl font-bold text-gray-900">출석 완료 ✅</p>
-            <p className="text-sm text-gray-600 mt-2">
-              {endTimeStr ? `${endTimeStr} 수업이 끝나면 ` : '수업이 끝나면 '}
-              현장에서 <b>퇴장하기</b>를 눌러 출석을 마무리하세요.
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-5 text-left">
-              <p className="text-xs text-blue-800 font-bold">📱 이제 창을 닫으셔도 됩니다</p>
-              <p className="text-xs text-blue-700 mt-1">
-                수업이 끝난 뒤 이 페이지를 다시 열어 <b>현장에서</b> 퇴장만 찍으면 출석으로 인정됩니다.
+            {endTimeStr && (
+              <p className="text-sm text-gray-600 mt-2">
+                수업 종료: <b>{endTimeStr}</b>
               </p>
+            )}
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mt-4 text-left">
+              <p className="text-xs text-orange-800 font-bold">⚠️ 퇴장 방법 (중요!)</p>
+              <p className="text-xs text-orange-700 mt-1">
+                수업 종료 <b>5분 전</b>에 퇴장 버튼이 나타납니다.<br />
+                반드시 <b>종료 전에</b> 현장에서 퇴장을 찍어야 출석으로 인정됩니다.
+              </p>
+              {minToCheckout != null && minToCheckout > 0 && (
+                <p className="text-xs text-orange-600 font-bold mt-1">
+                  퇴장 버튼까지: 약 {minToCheckout}분
+                </p>
+              )}
             </div>
             {marked && <MarkedLocation lat={marked.lat} lng={marked.lng} label="내가 출석한 위치" />}
             <button onClick={recheck} disabled={busy} className="mt-4 w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-xl text-sm disabled:opacity-50">
@@ -245,12 +274,15 @@ function LiveInner() {
 
         {phase === 'can_exit' && (
           <>
-            <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto mb-3" />
-            <p className="text-xl font-bold text-gray-900">🎉 수업 종료!</p>
-            <p className="text-sm text-gray-600 mt-2">현장에서 아래 버튼을 눌러 퇴장하면 출석이 인정됩니다.</p>
+            <CheckCircle2 className="w-16 h-16 text-orange-500 mx-auto mb-3" />
+            <p className="text-xl font-bold text-gray-900">⏰ 수업 종료 5분 전!</p>
+            <p className="text-sm text-gray-600 mt-2">
+              지금 현장에서 <b>퇴장하기</b>를 눌러야 출석이 인정됩니다.
+            </p>
+            <p className="text-xs text-red-500 mt-1 font-semibold">⚠️ 수업이 끝나면 퇴장 불가 → 출석 미인정</p>
             {msg && <p className="text-sm text-red-600 mt-2 font-semibold">{msg}</p>}
-            <button onClick={doCheckout} disabled={busy} className="mt-5 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl text-lg disabled:opacity-50">
-              {busy ? '위치 확인 중...' : '🚪 퇴장하기 (위치 확인)'}
+            <button onClick={doCheckout} disabled={busy} className="mt-5 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl text-lg disabled:opacity-50 animate-pulse">
+              {busy ? '위치 확인 중...' : '🚪 지금 퇴장하기 (위치 확인)'}
             </button>
             {marked && <MarkedLocation lat={marked.lat} lng={marked.lng} label="내가 출석한 위치" />}
           </>

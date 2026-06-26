@@ -292,26 +292,38 @@ export default function AdminLivePage() {
                             입장 {fmt(r.entry_at)}{r.exit_at ? ` · 퇴장 ${fmt(r.exit_at)}` : ''}
                             {r.entry_distance_m != null ? ` · 약 ${r.entry_distance_m}m` : ''}
                           </p>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-0.5 mt-0.5">
                             {r.entry_lat != null && r.entry_lng != null && (
-                              <a
-                                href={`https://www.google.com/maps?q=${r.entry_lat},${r.entry_lng}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-blue-600 hover:underline font-medium"
-                              >
-                                🗺️ 출석 위치
-                              </a>
+                              <div className="flex items-center gap-1.5">
+                                <MapPin className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                                <span className="text-xs font-mono text-blue-700">
+                                  {Number(r.entry_lat).toFixed(5)}, {Number(r.entry_lng).toFixed(5)}
+                                </span>
+                                <a
+                                  href={`https://www.google.com/maps?q=${r.entry_lat},${r.entry_lng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-500 hover:underline"
+                                >
+                                  [지도]
+                                </a>
+                              </div>
                             )}
                             {r.exit_lat != null && r.exit_lng != null && (
-                              <a
-                                href={`https://www.google.com/maps?q=${r.exit_lat},${r.exit_lng}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-green-600 hover:underline font-medium"
-                              >
-                                🚪 퇴장 위치
-                              </a>
+                              <div className="flex items-center gap-1.5">
+                                <MapPin className="w-3 h-3 text-green-500 flex-shrink-0" />
+                                <span className="text-xs font-mono text-green-700">
+                                  {Number(r.exit_lat).toFixed(5)}, {Number(r.exit_lng).toFixed(5)}
+                                </span>
+                                <a
+                                  href={`https://www.google.com/maps?q=${r.exit_lat},${r.exit_lng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-green-500 hover:underline"
+                                >
+                                  [지도]
+                                </a>
+                              </div>
                             )}
                           </div>
                         </div>
