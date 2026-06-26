@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { LogOut, Clock, MapPin, Navigation, Crosshair, Wifi } from 'lucide-react'
+import { LogOut, Clock, MapPin, Navigation, Crosshair, Wifi, Upload, FileText, Download } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
@@ -96,6 +96,10 @@ export default function CoursePage() {
   const [excusedCount, setExcusedCount] = useState(0)
   const [materials, setMaterials] = useState<any[]>([])
   const [notice, setNotice] = useState('')
+  const [submissions, setSubmissions] = useState<any[]>([])
+  const [submitFile, setSubmitFile] = useState<File | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const submitInputRef = useRef<HTMLInputElement>(null)
   const [schedule, setSchedule] = useState<any[]>([])
   const [currentClass, setCurrentClass] = useState<any>(null)
   const [selectedEpisode, setSelectedEpisode] = useState(1)
@@ -185,6 +189,45 @@ export default function CoursePage() {
 
     setPageLoaded(true)
   }, [courseId, router, setUser])
+
+  const loadSubmissions = useCallback(async (uid: string) => {
+    try {
+      const res = await fetch(`/api/submissions?courseId=${courseId}&userId=${uid}`, { cache: 'no-store' })
+      const d = await res.json()
+      setSubmissions(d.submissions || [])
+    } catch { /* 무시 */ }
+  }, [courseId])
+
+  useEffect(() => {
+    const saved = localStorage.getItem('user')
+    if (saved) {
+      const u = JSON.parse(saved)
+      loadSubmissions(u.id)
+    }
+  }, [loadSubmissions])
+
+  const handleFileSubmit = async () => {
+    if (!submitFile || !user) return
+    setSubmitting(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', submitFile)
+      fd.append('courseId', courseId)
+      fd.append('userId', user.id)
+      fd.append('userName', user.name || '')
+      const res = await fetch('/api/submissions', { method: 'POST', body: fd })
+      const d = await res.json()
+      if (!res.ok) { toast.error(d.error || '업로드 실패'); return }
+      toast.success('✅ 과제 제출 완료!')
+      setSubmitFile(null)
+      if (submitInputRef.current) submitInputRef.current.value = ''
+      loadSubmissions(user.id)
+    } catch {
+      toast.error('네트워크 오류')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   // 진행 중인 출석 세션 선택 — 기기마다 강의 ID가 달라도 찾아낸다
   //  1) 같은 강의 ID  2) 세션 이름에 강의명 포함  3) 진행 중인 세션(보통 1개)
@@ -836,6 +879,91 @@ export default function CoursePage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ===== 과제 제출 ===== */}
+        <div className="bg-white rounded-lg shadow p-8 mb-8">
+          <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <Upload className="w-6 h-6 text-indigo-600" /> 과제 제출
+          </h3>
+
+          <div className="border-2 border-dashed border-indigo-200 rounded-xl p-6 mb-4 text-center">
+            <input
+              ref={submitInputRef}
+              type="file"
+              className="hidden"
+              id="submit-file-input"
+              onChange={(e) => setSubmitFile(e.target.files?.[0] || null)}
+            />
+            {submitFile ? (
+              <div className="space-y-3">
+                <p className="text-indigo-700 font-bold flex items-center justify-center gap-2">
+                  <FileText className="w-5 h-5" /> {submitFile.name}
+                </p>
+                <p className="text-sm text-gray-500">{(submitFile.size / 1024).toFixed(1)} KB</p>
+                <div className="flex gap-2 justify-center">
+                  <button
+                    onClick={() => { setSubmitFile(null); if (submitInputRef.current) submitInputRef.current.value = '' }}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleFileSubmit}
+                    disabled={submitting}
+                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-bold flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {submitting ? '제출 중...' : '제출하기'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label htmlFor="submit-file-input" className="cursor-pointer block">
+                <p className="text-4xl mb-2">📎</p>
+                <p className="text-indigo-600 font-bold">클릭해서 파일 선택</p>
+                <p className="text-xs text-gray-400 mt-1">최대 50MB · PDF, 이미지, Word, 압축파일 등</p>
+              </label>
+            )}
+          </div>
+
+          {submissions.length > 0 && (
+            <div>
+              <h4 className="font-bold text-gray-700 mb-3 text-sm">제출 내역</h4>
+              <div className="space-y-2">
+                {submissions.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <FileText className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm truncate">{s.file_name}</p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(s.submitted_at).toLocaleString('ko-KR')}
+                          {s.file_size ? ` · ${(s.file_size / 1024).toFixed(1)} KB` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {s.grade && (
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">{s.grade}</span>
+                      )}
+                      {s.comment && (
+                        <span className="text-xs text-gray-500 max-w-[120px] truncate" title={s.comment}>💬 {s.comment}</span>
+                      )}
+                      <a
+                        href={`/api/submissions/download?id=${s.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 hover:bg-indigo-100 text-indigo-600 rounded-lg"
+                      >
+                        <Download className="w-4 h-4" />
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow p-8">

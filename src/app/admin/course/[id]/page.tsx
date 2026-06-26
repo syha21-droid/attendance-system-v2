@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { LogOut, ArrowLeft, Upload, Trash2, Download, QrCode, X } from 'lucide-react'
+import { LogOut, ArrowLeft, Upload, Trash2, Download, QrCode, X, FileText, RefreshCw } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useStore } from '@/store/useStore'
 import * as XLSX from 'xlsx'
@@ -80,6 +80,10 @@ export default function CourseDetailPage() {
   const [codeGeneratedTime, setCodeGeneratedTime] = useState<string | null>(null)
   const [activeExitCode, setActiveExitCode] = useState<string | null>(null)
   const [exitCodeGeneratedTime, setExitCodeGeneratedTime] = useState<string | null>(null)
+  const [adminSubmissions, setAdminSubmissions] = useState<any[]>([])
+  const [gradingId, setGradingId] = useState<string | null>(null)
+  const [gradeInput, setGradeInput] = useState('')
+  const [commentInput, setCommentInput] = useState('')
 
   useIsomorphicLayoutEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -101,6 +105,7 @@ export default function CourseDetailPage() {
       setInstructorName(found.instructor)
       loadMaterials(found.id)
       loadStudents(found.id)
+      loadAdminSubmissions(found.id)
 
       const savedNotice = localStorage.getItem(`course_notice_${found.id}`)
       if (savedNotice) setNotice(savedNotice)
@@ -167,6 +172,38 @@ export default function CourseDetailPage() {
     if (saved) {
       setMaterials(JSON.parse(saved))
     }
+  }
+
+  const loadAdminSubmissions = async (cId: string) => {
+    try {
+      const res = await fetch(`/api/submissions?courseId=${cId}`, { cache: 'no-store' })
+      const d = await res.json()
+      setAdminSubmissions(d.submissions || [])
+    } catch { /* 무시 */ }
+  }
+
+  const handleGrade = async (id: string) => {
+    try {
+      await fetch('/api/submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, grade: gradeInput, comment: commentInput }),
+      })
+      toast.success('채점 완료')
+      setGradingId(null)
+      setGradeInput('')
+      setCommentInput('')
+      if (course) loadAdminSubmissions(course.id)
+    } catch {
+      toast.error('채점 저장 실패')
+    }
+  }
+
+  const handleDeleteSubmission = async (id: string) => {
+    if (!confirm('제출 파일을 삭제하시겠습니까?')) return
+    await fetch(`/api/submissions?id=${id}`, { method: 'DELETE' })
+    toast.success('삭제되었습니다')
+    if (course) loadAdminSubmissions(course.id)
   }
 
   const loadStudents = async (cId: string) => {
@@ -1073,6 +1110,120 @@ export default function CourseDetailPage() {
                   </div>
                 </>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* ===== 제출된 과제 ===== */}
+        <div className="bg-white rounded-lg shadow p-8 mt-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <FileText className="w-6 h-6 text-indigo-600" /> 제출된 과제 ({adminSubmissions.length}건)
+            </h3>
+            <button onClick={() => course && loadAdminSubmissions(course.id)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <RefreshCw className="w-4 h-4 text-gray-500" />
+            </button>
+          </div>
+
+          {adminSubmissions.length === 0 ? (
+            <p className="text-center text-gray-400 py-10">아직 제출된 과제가 없습니다</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 text-gray-500">
+                    <th className="text-left py-3 pr-4">학생</th>
+                    <th className="text-left py-3 pr-4">파일명</th>
+                    <th className="text-left py-3 pr-4">크기</th>
+                    <th className="text-left py-3 pr-4">제출일시</th>
+                    <th className="text-left py-3 pr-4">채점</th>
+                    <th className="py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminSubmissions.map((s) => (
+                    <>
+                      <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 pr-4 font-semibold text-gray-900">{s.user_name || s.user_id}</td>
+                        <td className="py-3 pr-4 text-gray-700 max-w-[200px] truncate">{s.file_name}</td>
+                        <td className="py-3 pr-4 text-gray-500 whitespace-nowrap">
+                          {s.file_size ? `${(s.file_size / 1024).toFixed(1)} KB` : '-'}
+                        </td>
+                        <td className="py-3 pr-4 text-gray-500 whitespace-nowrap">
+                          {new Date(s.submitted_at).toLocaleString('ko-KR')}
+                        </td>
+                        <td className="py-3 pr-4">
+                          {s.grade ? (
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">{s.grade}</span>
+                          ) : (
+                            <span className="text-gray-300 text-xs">미채점</span>
+                          )}
+                        </td>
+                        <td className="py-3">
+                          <div className="flex items-center gap-1">
+                            <a
+                              href={`/api/submissions/download?id=${s.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 hover:bg-indigo-100 text-indigo-600 rounded-lg"
+                              title="다운로드"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                            <button
+                              onClick={() => { setGradingId(s.id); setGradeInput(s.grade || ''); setCommentInput(s.comment || '') }}
+                              className="p-1.5 hover:bg-yellow-100 text-yellow-600 rounded-lg text-xs font-bold"
+                              title="채점"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSubmission(s.id)}
+                              className="p-1.5 hover:bg-red-100 text-red-500 rounded-lg"
+                              title="삭제"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {gradingId === s.id && (
+                        <tr key={`grade-${s.id}`} className="border-b border-indigo-100 bg-indigo-50">
+                          <td colSpan={6} className="py-3 px-4">
+                            <div className="flex items-center gap-3">
+                              <input
+                                value={gradeInput}
+                                onChange={(e) => setGradeInput(e.target.value)}
+                                placeholder="점수/등급 (예: A, 95점)"
+                                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm w-40 text-gray-900 font-semibold"
+                              />
+                              <input
+                                value={commentInput}
+                                onChange={(e) => setCommentInput(e.target.value)}
+                                placeholder="피드백 (선택)"
+                                className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900"
+                              />
+                              <button
+                                onClick={() => handleGrade(s.id)}
+                                className="px-4 py-1.5 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700"
+                              >
+                                저장
+                              </button>
+                              <button
+                                onClick={() => setGradingId(null)}
+                                className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300"
+                              >
+                                취소
+                              </button>
+                            </div>
+                            {s.comment && <p className="text-xs text-gray-500 mt-1">현재 피드백: {s.comment}</p>}
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
