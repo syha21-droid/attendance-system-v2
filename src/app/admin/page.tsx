@@ -9,6 +9,7 @@ import * as XLSX from 'xlsx'
 import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
 import { loadCourses, createCourse, deleteCourse, syncLocalCoursesToServer, loadStudents } from '@/lib/dataStore'
+import { clearSessionCookie } from '@/lib/session'
 
 export default function AdminPage() {
   const router = useRouter()
@@ -119,7 +120,7 @@ export default function AdminPage() {
     toast.success('엑셀 파일이 다운로드되었습니다')
   }
 
-  const handleLogout = () => { localStorage.removeItem('user'); setUser(null); router.push('/login') }
+  const handleLogout = () => { clearSessionCookie(); localStorage.removeItem('user'); setUser(null); router.push('/login') }
 
   if (!user) {
     return (

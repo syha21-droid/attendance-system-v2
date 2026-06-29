@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { LogOut, ArrowLeft, Award, Star, Zap, Trophy, Target } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Course } from '@/types'
+import { clearSessionCookie } from '@/lib/session'
 
 interface CourseStats {
   courseId: string
@@ -144,6 +145,7 @@ export default function GradesPage() {
   }, [router, setUser])
 
   const handleLogout = () => {
+    clearSessionCookie()
     localStorage.removeItem('user')
     setUser(null)
     router.push('/login')

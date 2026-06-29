@@ -6,6 +6,7 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useStore } from '@/store/useStore'
 import { apiSignup } from '@/lib/dataStore'
+import { setSessionCookie } from '@/lib/session'
 
 const ADMIN_CODE = 'RD-ADMIN-2025'
 
@@ -49,6 +50,7 @@ export default function SignUp() {
       localStorage.setItem('users', JSON.stringify(users))
     }
     localStorage.setItem('user', JSON.stringify(user))
+    setSessionCookie(user)
     setUser(user as any)
 
     if (!user.isAdmin) {

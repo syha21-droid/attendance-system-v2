@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { LogOut, Ticket, RefreshCw, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { clearSessionCookie } from '@/lib/session'
 
 interface Lecture {
   id: string
@@ -101,6 +102,7 @@ export default function SpecialHome() {
   }
 
   const logout = () => {
+    clearSessionCookie()
     localStorage.removeItem('user')
     router.push('/login')
   }

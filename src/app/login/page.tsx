@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { MapPin, Clock, ShieldCheck } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { apiLogin } from '@/lib/dataStore'
+import { setSessionCookie } from '@/lib/session'
 
 const features = [
   { icon: MapPin,      title: 'GPS 위치 인증',      desc: '현장에서만 출석 가능한 위치 기반 시스템' },
@@ -37,6 +38,7 @@ export default function Login() {
 
     if (user) {
       localStorage.setItem('user', JSON.stringify(user))
+      setSessionCookie(user)
       setUser(user as any)
       toast.success('로그인 성공')
       setTimeout(() => router.push(user.isAdmin ? '/admin' : '/student'), 400)

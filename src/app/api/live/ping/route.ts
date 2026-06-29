@@ -50,11 +50,12 @@ export async function POST(req: Request) {
   const now = Date.now()
   const nowIso = new Date(now).toISOString()
   const endMs = new Date(session.ends_at).getTime()
-  const ended = now > endMs
-  const timeToEndMs = endMs - now
-  // 퇴장은 수업 종료 5분 전부터 ~ 종료 전까지만 허용
-  const CHECKOUT_WINDOW_MS = 5 * 60 * 1000
-  const canCheckout = !ended && timeToEndMs <= CHECKOUT_WINDOW_MS
+  const ended = now >= endMs
+  const timeToEndMs = endMs - now                        // 음수면 이미 종료
+  const sinceEndMs = now - endMs                         // 종료 후 경과 시간
+  // 퇴장은 수업 종료 후 ~ 30분 이내만 허용
+  const CHECKOUT_GRACE_MS = 30 * 60 * 1000
+  const canCheckout = ended && sinceEndMs <= CHECKOUT_GRACE_MS
 
   const hasLoc = typeof lat === 'number' && typeof lng === 'number'
   const distance = hasLoc ? distanceMeters(session.venue_lat, session.venue_lng, lat, lng) : null
@@ -127,15 +128,15 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, ...base, status: 'present', myLat: lat, myLng: lng })
   }
 
-  // ---- checkout: 수업 종료 5분 전부터 종료 전까지만 퇴장 가능 (현장 위치 확인 필수) ----
+  // ---- checkout: 수업 종료 후 ~ 30분 이내, 현장에서만 퇴장 가능 ----
   if (action === 'checkout') {
     if (!rec) return Response.json({ ok: false, ...base, error: '출석 기록이 없습니다' })
-    if (ended) {
-      return Response.json({ ok: false, ...base, error: '⏰ 퇴장 시간이 지났습니다. 수업 종료 5분 전에 퇴장해야 출석이 인정됩니다.' })
+    if (!ended) {
+      const minLeft = Math.ceil(timeToEndMs / 60000)
+      return Response.json({ ok: false, ...base, error: `🔒 수업이 아직 끝나지 않았습니다 (약 ${minLeft}분 남음)` })
     }
     if (!canCheckout) {
-      const minLeft = Math.ceil(timeToEndMs / 60000)
-      return Response.json({ ok: false, ...base, error: `🔒 수업 종료 5분 전부터 퇴장할 수 있습니다 (약 ${minLeft}분 남음)` })
+      return Response.json({ ok: false, ...base, error: '⏰ 퇴장 가능 시간(종료 후 30분)이 지났습니다' })
     }
     if (!hasLoc) return Response.json({ ok: false, ...base, error: '📍 위치 권한을 허용하세요' })
     if (!inRange) {

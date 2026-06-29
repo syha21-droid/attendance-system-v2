@@ -8,6 +8,7 @@ import { useStore } from '@/store/useStore'
 import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
 import { loadCourses } from '@/lib/dataStore'
+import { clearSessionCookie } from '@/lib/session'
 
 function getDeviceId(): string {
   let id = localStorage.getItem('deviceId')
@@ -393,7 +394,7 @@ export default function CoursePage() {
             ← 돌아가기
           </button>
           <h1 style={{ fontSize: '13px', fontWeight: '600', color: 'rgba(255,255,255,0.75)' }}>{course.name}</h1>
-          <button onClick={() => { localStorage.removeItem('user'); setUser(null); router.push('/login') }} className="rd-nav-btn">
+          <button onClick={() => { clearSessionCookie(); localStorage.removeItem('user'); setUser(null); router.push('/login') }} className="rd-nav-btn">
             <LogOut style={{ width: '15px', height: '15px' }} />
           </button>
         </div>
