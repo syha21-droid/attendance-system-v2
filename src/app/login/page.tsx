@@ -134,12 +134,6 @@ export default function Login() {
             </button>
           </form>
 
-          <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <p style={{ fontSize: '10px', fontWeight: '700', color: 'rgba(255,255,255,0.26)', marginBottom: '8px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>테스트 계정</p>
-            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.28)', fontFamily: 'monospace', marginBottom: '4px' }}>admin@test.com · admin123</p>
-            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.28)', fontFamily: 'monospace' }}>student1@test.com · student123</p>
-          </div>
-
           <p style={{ textAlign: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.26)', marginTop: '28px' }}>
             계정이 없으신가요?{' '}
             <Link href="/signup" style={{ color: '#C9941A', fontWeight: '600', textDecoration: 'none' }}>회원가입</Link>
