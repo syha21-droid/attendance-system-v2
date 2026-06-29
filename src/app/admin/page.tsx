@@ -136,6 +136,7 @@ export default function AdminPage() {
     { label: '학생 관리',    desc: '학생 조회 및 수강 변경', path: '/admin/students' },
     { label: '지각 관리',    desc: '지각 학생 관리', path: '/admin/late' },
     { label: '특강 관리',    desc: '특강·수강권·사원 명단', path: '/admin/special' },
+    { label: '로그인 기록',  desc: '수강생·관리자 접속 이력', path: '/admin/login-history' },
   ]
 
   return (

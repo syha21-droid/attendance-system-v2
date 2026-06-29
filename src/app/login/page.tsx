@@ -40,6 +40,14 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(user))
       setSessionCookie(user)
       setUser(user as any)
+      // 로그인 기록 저장
+      const history = JSON.parse(localStorage.getItem('login_history') || '[]')
+      history.unshift({
+        userId: user.id, name: user.name, email: user.email,
+        isAdmin: user.isAdmin, time: new Date().toISOString(),
+        device: navigator.userAgent.includes('Mobile') ? '모바일' : 'PC',
+      })
+      localStorage.setItem('login_history', JSON.stringify(history.slice(0, 300)))
       toast.success('로그인 성공')
       setTimeout(() => router.push(user.isAdmin ? '/admin' : '/student'), 400)
     } else {
