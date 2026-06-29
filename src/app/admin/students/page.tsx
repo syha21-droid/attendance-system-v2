@@ -189,9 +189,9 @@ export default function StudentsPage() {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* 통계 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
           {[
             { label: '총 학생', value: students.length, color: 'white' },
             { label: '수강 중', value: activeCount, color: '#C9941A', sub: '강의 등록함' },
@@ -208,7 +208,7 @@ export default function StudentsPage() {
 
         {/* 검색 + 목록 */}
         <div className="rd-surface overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-4 sm:py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
             <h2 style={{ fontSize: '13px', fontWeight: '600', color: 'rgba(255,255,255,0.75)' }}>등록된 학생 목록</h2>
             <div style={{ position: 'relative' }}>
               <Search style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.30)', position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
@@ -216,7 +216,7 @@ export default function StudentsPage() {
                 type="text" value={search} onChange={(e) => setSearch(e.target.value)}
                 placeholder="이름 또는 이메일"
                 className="rd-input"
-                style={{ width: '220px', height: '38px', paddingLeft: '36px', fontSize: '13px' }}
+                style={{ width: '100%', maxWidth: '280px', minWidth: '160px', height: '38px', paddingLeft: '36px', fontSize: '13px' }}
               />
             </div>
           </div>
@@ -230,8 +230,8 @@ export default function StudentsPage() {
           ) : (
             <div>
               {filteredStudents.map((student) => (
-                <div key={student.id} style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div key={student.id} style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }} className="sm:px-6 sm:py-5">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 flex-wrap" style={{ marginBottom: '6px' }}>
                         <p style={{ fontSize: '15px', fontWeight: '700', color: 'white' }}>{student.name}</p>
@@ -266,9 +266,9 @@ export default function StudentsPage() {
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-3">
+                    <div className="flex flex-col items-start sm:items-end gap-3">
                       {/* 버튼 그룹 */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <button
                           onClick={() => openManageModal(student)}
                           className="flex items-center gap-1.5"

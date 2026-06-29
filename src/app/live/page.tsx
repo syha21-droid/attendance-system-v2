@@ -38,8 +38,8 @@ function getLoc(): Promise<{ lat: number; lng: number }> {
 const CARD_STYLE: React.CSSProperties = {
   background: '#0F1420',
   border: '1px solid rgba(255,255,255,0.08)',
-  padding: '36px 32px',
-  maxWidth: '380px',
+  padding: '28px 20px',
+  maxWidth: '420px',
   width: '100%',
   textAlign: 'center',
 }

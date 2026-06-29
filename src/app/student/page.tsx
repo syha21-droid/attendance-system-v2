@@ -115,7 +115,7 @@ export default function StudentPage() {
         </div>
       </nav>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* 헤더 */}
         <div style={{ marginBottom: '32px' }}>
           <p style={{ fontSize: '10px', fontWeight: '700', color: '#C9941A', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: '8px' }}>Student</p>
@@ -124,7 +124,7 @@ export default function StudentPage() {
         </div>
 
         {/* 통계 카드 */}
-        <div className="grid grid-cols-3 gap-4" style={{ marginBottom: '28px' }}>
+        <div className="grid grid-cols-3 sm:grid-cols-3 gap-3 sm:gap-4" style={{ marginBottom: '28px' }}>
           <div className="rd-surface p-5">
             <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>등록 강의</p>
             <p style={{ fontSize: '2rem', fontWeight: '700', color: 'white', lineHeight: 1 }}>{enrolledCourses.length}</p>

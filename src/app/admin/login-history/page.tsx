@@ -57,9 +57,9 @@ export default function LoginHistoryPage() {
         </div>
       </nav>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* 요약 통계 */}
-        <div className="grid grid-cols-3 gap-4" style={{ marginBottom: '24px' }}>
+        <div className="grid grid-cols-3 gap-3 sm:gap-4" style={{ marginBottom: '24px' }}>
           {[
             { label: '전체 접속', value: records.length, color: 'white' },
             { label: '관리자', value: records.filter((r) => r.isAdmin).length, color: '#C9941A' },
@@ -74,7 +74,7 @@ export default function LoginHistoryPage() {
 
         {/* 필터 + 목록 */}
         <div className="rd-surface overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
             <h2 style={{ fontSize: '13px', fontWeight: '600', color: 'rgba(255,255,255,0.70)' }}>접속 이력</h2>
             <div className="flex gap-2">
               {(['all', 'admin', 'student'] as const).map((f) => (
@@ -104,8 +104,8 @@ export default function LoginHistoryPage() {
               {filtered.map((r, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between"
-                  style={{ padding: '14px 24px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                  style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
                 >
                   <div className="flex items-center gap-3">
                     <div style={{
