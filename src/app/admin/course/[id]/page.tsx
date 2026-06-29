@@ -86,6 +86,13 @@ export default function CourseDetailPage() {
   const [gradeInput, setGradeInput] = useState('')
   const [commentInput, setCommentInput] = useState('')
 
+  // 수강 명단
+  const [roster, setRoster] = useState<{ name: string; email: string }[]>([])
+  const [rosterPaste, setRosterPaste] = useState('')
+  const [rosterName, setRosterName] = useState('')
+  const [rosterEmail, setRosterEmail] = useState('')
+  const [showRoster, setShowRoster] = useState(false)
+
   useIsomorphicLayoutEffect(() => {
     const savedUser = localStorage.getItem('user')
     if (!savedUser) {
@@ -107,6 +114,8 @@ export default function CourseDetailPage() {
       loadMaterials(found.id)
       loadStudents(found.id)
       loadAdminSubmissions(found.id)
+      const rosterRaw = localStorage.getItem(`roster_${found.id}`)
+      if (rosterRaw) { try { setRoster(JSON.parse(rosterRaw)) } catch { setRoster([]) } }
 
       const savedNotice = localStorage.getItem(`course_notice_${found.id}`)
       if (savedNotice) setNotice(savedNotice)
@@ -480,6 +489,49 @@ export default function CourseDetailPage() {
     setSchedule(updated)
   }
 
+  // ── 수강 명단 ──
+  const loadRoster = (id: string) => {
+    const raw = localStorage.getItem(`roster_${id}`)
+    if (raw) { try { setRoster(JSON.parse(raw)) } catch { setRoster([]) } }
+    else setRoster([])
+  }
+
+  const saveRoster = (list: { name: string; email: string }[]) => {
+    setRoster(list)
+    if (course) localStorage.setItem(`roster_${course.id}`, JSON.stringify(list))
+  }
+
+  const handleRosterPaste = () => {
+    if (!rosterPaste.trim()) return
+    const entries = rosterPaste.trim().split('\n').map((line) => {
+      const parts = line.split(/\t|,/)
+      const name = parts[0]?.trim() || ''
+      const email = parts[1]?.trim() || ''
+      return { name, email }
+    }).filter((e) => e.name)
+    const merged = [...roster]
+    entries.forEach((e) => {
+      const dup = merged.some((r) => r.name === e.name || (e.email && r.email === e.email))
+      if (!dup) merged.push(e)
+    })
+    saveRoster(merged)
+    setRosterPaste('')
+    toast.success(`${entries.length}명 추가됐습니다`)
+  }
+
+  const handleRosterAdd = () => {
+    if (!rosterName.trim()) { toast.error('이름을 입력하세요'); return }
+    const dup = roster.some((r) => r.name === rosterName.trim() || (rosterEmail && r.email === rosterEmail.trim()))
+    if (dup) { toast.error('이미 명단에 있습니다'); return }
+    saveRoster([...roster, { name: rosterName.trim(), email: rosterEmail.trim() }])
+    setRosterName(''); setRosterEmail('')
+    toast.success('추가됐습니다')
+  }
+
+  const handleRosterRemove = (name: string) => {
+    saveRoster(roster.filter((r) => r.name !== name))
+  }
+
   const handleDownloadStudentExcel = () => {
     if (students.length === 0) {
       toast.error('내보낼 학생 데이터가 없습니다')
@@ -810,6 +862,93 @@ export default function CourseDetailPage() {
                   ))
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* ── 수강 명단 (출석부) ── */}
+          <div className="lg:col-span-2">
+            <div style={{ background: '#0F1420', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', marginBottom: '24px', overflow: 'hidden' }}>
+              <button
+                onClick={() => setShowRoster(!showRoster)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                <div className="flex items-center gap-3">
+                  <div style={{ width: '4px', height: '16px', background: '#C9941A', flexShrink: 0 }} />
+                  <span style={{ fontSize: '14px', fontWeight: '700', color: 'white' }}>수강 명단</span>
+                  <span style={{
+                    fontSize: '11px', fontWeight: '700', padding: '2px 10px',
+                    color: roster.length > 0 ? '#C9941A' : 'rgba(255,255,255,0.35)',
+                    border: `1px solid ${roster.length > 0 ? 'rgba(201,148,26,0.35)' : 'rgba(255,255,255,0.12)'}`,
+                    background: roster.length > 0 ? 'rgba(201,148,26,0.08)' : 'rgba(255,255,255,0.03)',
+                    borderRadius: '3px',
+                  }}>
+                    {roster.length > 0 ? `${roster.length}명 등록` : '명단 없음 (자유 등록)'}
+                  </span>
+                </div>
+                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)' }}>{showRoster ? '닫기 ▲' : '관리 ▼'}</span>
+              </button>
+
+              {showRoster && (
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* 엑셀 붙여넣기 */}
+                  <div>
+                    <p style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.38)', letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                      엑셀에서 붙여넣기 <span style={{ fontWeight: '400', color: 'rgba(255,255,255,0.20)' }}>(이름 탭 이메일 형식 · 한 줄에 1명)</span>
+                    </p>
+                    <textarea
+                      value={rosterPaste}
+                      onChange={(e) => setRosterPaste(e.target.value)}
+                      placeholder={'홍길동\t hong@email.com\n김철수\t kim@email.com'}
+                      rows={4}
+                      style={{ width: '100%', background: '#111820', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(255,255,255,0.80)', fontSize: '12px', fontFamily: 'monospace', padding: '12px', resize: 'vertical', outline: 'none', borderRadius: '4px' }}
+                    />
+                    <button onClick={handleRosterPaste} className="btn-gold" style={{ marginTop: '8px', height: '38px', padding: '0 20px', fontSize: '12px' }}>
+                      붙여넣기로 추가
+                    </button>
+                  </div>
+
+                  {/* 직접 입력 */}
+                  <div>
+                    <p style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.38)', letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '10px' }}>직접 추가</p>
+                    <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+                      <input value={rosterName} onChange={(e) => setRosterName(e.target.value)} placeholder="이름 *" className="rd-input" style={{ flex: '1', minWidth: '120px' }} onKeyDown={(e) => e.key === 'Enter' && handleRosterAdd()} />
+                      <input value={rosterEmail} onChange={(e) => setRosterEmail(e.target.value)} placeholder="이메일 (선택)" className="rd-input" style={{ flex: '2', minWidth: '180px' }} onKeyDown={(e) => e.key === 'Enter' && handleRosterAdd()} />
+                      <button onClick={handleRosterAdd} style={{ padding: '0 16px', height: '44px', background: 'rgba(201,148,26,0.15)', border: '1px solid rgba(201,148,26,0.35)', color: '#C9941A', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap', borderRadius: '4px' }}>
+                        + 추가
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 현재 명단 */}
+                  {roster.length > 0 && (
+                    <div>
+                      <p style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.38)', letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                        등록된 명단 ({roster.length}명)
+                      </p>
+                      <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {roster.map((r, i) => (
+                          <div key={i} className="flex items-center justify-between" style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '4px' }}>
+                            <div>
+                              <span style={{ fontSize: '13px', fontWeight: '600', color: 'rgba(255,255,255,0.82)' }}>{r.name}</span>
+                              {r.email && <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.30)', marginLeft: '10px' }}>{r.email}</span>}
+                            </div>
+                            <button onClick={() => handleRosterRemove(r.name)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', padding: '4px', fontSize: '16px', lineHeight: 1 }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = '#f87171'}
+                              onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
+                            >×</button>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => { if (confirm('명단을 전체 삭제할까요? (자유 등록으로 전환됩니다)')) saveRoster([]) }}
+                        style={{ marginTop: '10px', padding: '6px 14px', background: 'none', border: '1px solid rgba(239,68,68,0.25)', color: 'rgba(239,68,68,0.60)', fontSize: '11px', fontWeight: '600', cursor: 'pointer', borderRadius: '4px' }}
+                      >
+                        명단 전체 삭제
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

@@ -54,6 +54,25 @@ export default function StudentPage() {
     const course = courses.find((c) => c.id === selectedCourse)
     if (!course || !user) return
     if (enrolledCourses.some((c) => c.id === course.id)) { toast.error('이미 등록한 강의입니다'); return }
+
+    // 수강 명단 검증
+    const rosterRaw = localStorage.getItem(`roster_${course.id}`)
+    if (rosterRaw) {
+      try {
+        const roster: { name: string; email: string }[] = JSON.parse(rosterRaw)
+        if (roster.length > 0) {
+          const allowed = roster.some((r) =>
+            (r.email && r.email.toLowerCase() === (user.email || '').toLowerCase()) ||
+            r.name === user.name
+          )
+          if (!allowed) {
+            toast.error('수강 명단에 없습니다. 담당자에게 문의하세요.')
+            return
+          }
+        }
+      } catch { /* 파싱 실패 시 허용 */ }
+    }
+
     const updated = [...enrolledCourses, course]
     setEnrolledCourses(updated)
     await enrollCourse(user.id, course)
