@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { LogOut, BookOpen, Award } from 'lucide-react'
+import { LogOut, BookOpen, Award, ChevronRight, Plus, X } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
@@ -22,20 +22,11 @@ export default function StudentPage() {
 
   useIsomorphicLayoutEffect(() => {
     const savedUser = localStorage.getItem('user')
-    if (!savedUser) {
-      router.push('/login')
-      return
-    }
-
+    if (!savedUser) { router.push('/login'); return }
     const userData = JSON.parse(savedUser)
-    if (userData.isAdmin) {
-      router.push('/admin')
-      return
-    }
-
+    if (userData.isAdmin) { router.push('/admin'); return }
     setUser(userData)
 
-    // 강의/수강신청: 서버 우선 (모든 기기 공유), 폴백 localStorage
     ;(async () => {
       const list = await loadCourses()
       setCourses(list)
@@ -43,174 +34,170 @@ export default function StudentPage() {
       setEnrolledCourses(enrolled)
     })()
 
-    // 출석 통계 집계
-    let present = 0
-    let late = 0
-    let absent = 0
-    let excused = 0
+    let present = 0, late = 0, absent = 0
     Object.keys(localStorage).forEach((key) => {
       if (key.startsWith(`attendance_${userData.id}_`)) {
         const data = JSON.parse(localStorage.getItem(key) || '[]')
         present += data.filter((r: any) => r.status === 'present').length
         late += data.filter((r: any) => r.status === 'late').length
         absent += data.filter((r: any) => r.status === 'absent').length
-        excused += data.filter((r: any) => r.status === 'excused').length
       }
     })
     setTotalAttendance(present + late)
-    // 출석률 = (출석 + 지각) / (출석 + 지각 + 결석), 공가는 제외
     const denom = present + late + absent
     setAttendanceRate(denom > 0 ? Math.round(((present + late) / denom) * 100) : 0)
   }, [router, setUser])
 
   const handleEnroll = async () => {
-    if (!selectedCourse) {
-      toast.error('강의를 선택하세요')
-      return
-    }
-
+    if (!selectedCourse) { toast.error('강의를 선택하세요'); return }
     const course = courses.find((c) => c.id === selectedCourse)
     if (!course || !user) return
-
-    if (enrolledCourses.some((c) => c.id === course.id)) {
-      toast.error('이미 등록한 강의입니다')
-      return
-    }
-
+    if (enrolledCourses.some((c) => c.id === course.id)) { toast.error('이미 등록한 강의입니다'); return }
     const updated = [...enrolledCourses, course]
     setEnrolledCourses(updated)
-    await enrollCourse(user.id, course) // 서버 + 캐시
-    toast.success('✅ 강의 등록 완료!')
+    await enrollCourse(user.id, course)
+    toast.success('강의 등록 완료!')
     setSelectedCourse('')
     setShowForm(false)
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('user')
-    setUser(null)
-    router.push('/login')
-  }
-
-  const handleCourseClick = (courseId: string) => {
-    router.push(`/student/course/${courseId}`)
-  }
+  const handleLogout = () => { localStorage.removeItem('user'); setUser(null); router.push('/login') }
 
   if (!user) {
-    return <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-blue-50 to-indigo-100"><div className="app-spinner" /><p className="text-gray-600 font-semibold">로딩 중...</p></div>
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#080C10' }}>
+        <div className="app-spinner" />
+      </div>
+    )
   }
 
+  const ratePct = Math.min(100, attendanceRate)
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">학생 대시보드</h1>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => router.push('/student/grades')}
-              className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg flex items-center gap-2 font-medium"
-            >
-              <Award className="w-4 h-4" />
-              성적표
+    <div className="min-h-screen" style={{ background: '#080C10' }}>
+      {/* 네비게이션 */}
+      <nav style={{ background: '#0D1218', borderBottom: '1px solid rgba(255,255,255,0.07)' }} className="sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div style={{ width: '22px', height: '22px', border: '1px solid #C9941A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span style={{ fontFamily: 'Georgia, serif', color: '#C9941A', fontSize: '11px', fontWeight: '700', lineHeight: '1' }}>R</span>
+            </div>
+            <span style={{ fontFamily: 'Georgia, serif', color: 'rgba(255,255,255,0.70)', fontSize: '10px', fontWeight: '600', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Rich Divine Partners</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => router.push('/student/grades')} className="rd-nav-btn">
+              <Award style={{ width: '15px', height: '15px' }} /> 성적표
             </button>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg flex items-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              로그아웃
+            <button onClick={handleLogout} className="rd-nav-btn">
+              <LogOut style={{ width: '15px', height: '15px' }} />
             </button>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow p-8 mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            반갑습니다, {user.name}님!
-          </h2>
-          <p className="text-gray-600">📧 {user.email}</p>
+      <main className="max-w-5xl mx-auto px-4 py-8">
+        {/* 헤더 */}
+        <div style={{ marginBottom: '32px' }}>
+          <p style={{ fontSize: '10px', fontWeight: '700', color: '#C9941A', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: '8px' }}>Student</p>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: '700', color: 'white' }}>{user.name}님</h1>
+          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.30)', marginTop: '4px' }}>{user.email}</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
-            <p className="text-gray-600 text-sm">등록한 강의</p>
-            <p className="text-3xl font-bold text-blue-600">{enrolledCourses.length}</p>
+        {/* 통계 카드 */}
+        <div className="grid grid-cols-3 gap-4" style={{ marginBottom: '28px' }}>
+          <div className="rd-surface p-5">
+            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>등록 강의</p>
+            <p style={{ fontSize: '2rem', fontWeight: '700', color: 'white', lineHeight: 1 }}>{enrolledCourses.length}</p>
+            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.22)', marginTop: '6px' }}>개</p>
           </div>
-          <div className="bg-green-50 rounded-lg p-6 border border-green-200">
-            <p className="text-gray-600 text-sm">총 출석</p>
-            <p className="text-3xl font-bold text-green-600">{totalAttendance}회</p>
+          <div className="rd-surface p-5">
+            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>총 출석</p>
+            <p style={{ fontSize: '2rem', fontWeight: '700', color: 'white', lineHeight: 1 }}>{totalAttendance}</p>
+            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.22)', marginTop: '6px' }}>회</p>
           </div>
-          <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
-            <p className="text-gray-600 text-sm">평균 출석률</p>
-            <p className="text-3xl font-bold text-purple-600">{attendanceRate}%</p>
+          <div className="rd-surface p-5">
+            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>출석률</p>
+            <p style={{ fontSize: '2rem', fontWeight: '700', color: '#C9941A', lineHeight: 1 }}>
+              {attendanceRate}<span style={{ fontSize: '1rem', fontWeight: '500', color: 'rgba(255,255,255,0.22)' }}>%</span>
+            </p>
+            <div style={{ marginTop: '10px', height: '2px', background: 'rgba(255,255,255,0.08)', borderRadius: '1px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', background: '#C9941A', borderRadius: '1px', width: `${ratePct}%`, transition: 'width 0.6s ease' }} />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-bold text-gray-900">
-              <BookOpen className="w-6 h-6 inline mr-2" />
-              수강 강의
-            </h3>
+        {/* 수강 강의 */}
+        <div className="rd-surface overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center gap-2">
+              <BookOpen style={{ width: '15px', height: '15px', color: '#C9941A' }} />
+              <h2 style={{ fontSize: '13px', fontWeight: '600', color: 'rgba(255,255,255,0.80)' }}>수강 강의</h2>
+            </div>
             <button
               onClick={() => setShowForm(!showForm)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+              className="flex items-center gap-1.5"
+              style={{
+                padding: '7px 12px', background: showForm ? 'rgba(255,255,255,0.06)' : '#C9941A',
+                color: showForm ? 'rgba(255,255,255,0.60)' : 'white',
+                fontSize: '12px', fontWeight: '600', border: 'none', cursor: 'pointer',
+                borderRadius: '4px', transition: 'background 0.15s',
+              }}
             >
-              + 강의 등록
+              {showForm ? <X style={{ width: '13px', height: '13px' }} /> : <Plus style={{ width: '13px', height: '13px' }} />}
+              {showForm ? '닫기' : '강의 등록'}
             </button>
           </div>
 
           {showForm && (
-            <div className="bg-blue-50 p-6 rounded-lg mb-6 border border-blue-200">
-              <label className="block text-lg font-bold text-gray-900 mb-4">
-                📚 강의를 선택하세요
-              </label>
-              {courses && courses.length > 0 ? (
-                <div className="space-y-3 mb-4">
+            <div className="px-6 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+              <p style={{ fontSize: '10px', fontWeight: '700', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.10em', marginBottom: '14px' }}>강의 선택</p>
+              {courses.length > 0 ? (
+                <div className="flex flex-col gap-2" style={{ marginBottom: '14px', maxHeight: '192px', overflowY: 'auto' }}>
                   {courses.map((course) => (
                     <button
-                      key={course.id}
-                      onClick={() => setSelectedCourse(course.id)}
-                      className={`w-full p-4 rounded-lg border-2 transition text-left ${
-                        selectedCourse === course.id
-                          ? 'bg-blue-600 border-blue-600 text-white'
-                          : 'bg-white border-gray-300 text-gray-900 hover:bg-blue-50'
-                      }`}
+                      key={course.id} onClick={() => setSelectedCourse(course.id)}
+                      style={{
+                        textAlign: 'left', padding: '12px 14px', border: '1px solid',
+                        borderColor: selectedCourse === course.id ? '#C9941A' : 'rgba(255,255,255,0.08)',
+                        background: selectedCourse === course.id ? 'rgba(201,148,26,0.12)' : 'rgba(255,255,255,0.02)',
+                        cursor: 'pointer', transition: 'all 0.12s',
+                      }}
                     >
-                      <p className="font-bold text-lg">{course.name}</p>
-                      <p className="text-base font-semibold">👨‍🏫 {course.instructor}</p>
+                      <p style={{ fontSize: '13px', fontWeight: '600', color: selectedCourse === course.id ? '#C9941A' : 'rgba(255,255,255,0.80)' }}>{course.name}</p>
+                      <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.30)', marginTop: '2px' }}>{course.instructor}</p>
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-4 font-semibold">등록된 강의가 없습니다</p>
+                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.28)', textAlign: 'center', padding: '16px 0', marginBottom: '14px' }}>등록된 강의가 없습니다</p>
               )}
               <button
-                onClick={handleEnroll}
-                disabled={!selectedCourse}
-                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                onClick={handleEnroll} disabled={!selectedCourse}
+                className="btn-gold" style={{ width: '100%', height: '42px', fontSize: '13px' }}
               >
-                ✅ 강의 등록
+                등록하기
               </button>
             </div>
           )}
 
           {enrolledCourses.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">등록한 강의가 없습니다</p>
+            <div className="px-6 py-16 text-center">
+              <p style={{ color: 'rgba(255,255,255,0.28)', fontSize: '13px' }}>등록한 강의가 없습니다</p>
+              <p style={{ color: 'rgba(255,255,255,0.16)', fontSize: '12px', marginTop: '6px' }}>위 버튼으로 강의를 등록해보세요</p>
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div>
               {enrolledCourses.map((course) => (
-                <div
-                  key={course.id}
-                  onClick={() => handleCourseClick(course.id)}
-                  className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200 hover:shadow-lg transition cursor-pointer"
-                >
+                <button key={course.id} onClick={() => router.push(`/student/course/${course.id}`)} className="rd-row-btn">
                   <div>
-                    <p className="font-semibold text-gray-900">{course.name}</p>
-                    <p className="text-sm text-gray-600">👨‍🏫 {course.instructor}</p>
+                    <p style={{ fontSize: '13px', fontWeight: '600', color: 'rgba(255,255,255,0.82)' }}>{course.name}</p>
+                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.30)', marginTop: '3px' }}>{course.instructor}</p>
                   </div>
-                  <span className="text-green-600 font-bold">✅ 등록됨</span>
-                </div>
+                  <div className="flex items-center gap-2">
+                    <span style={{ fontSize: '11px', fontWeight: '600', color: '#C9941A', padding: '3px 10px', border: '1px solid rgba(201,148,26,0.35)', background: 'rgba(201,148,26,0.08)' }}>등록됨</span>
+                    <ChevronRight style={{ width: '15px', height: '15px', color: 'rgba(255,255,255,0.22)' }} />
+                  </div>
+                </button>
               ))}
             </div>
           )}
