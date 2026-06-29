@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { LogOut, ArrowLeft, Upload, Trash2, Download, QrCode, X, FileText, RefreshCw } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
+import { LogOut, ArrowLeft, Upload, Trash2, Download, X, FileText, RefreshCw } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import * as XLSX from 'xlsx'
 import { Course } from '@/types'
@@ -75,12 +74,6 @@ export default function CourseDetailPage() {
   const [selectedEpisode, setSelectedEpisode] = useState(1)
   const [materialAvailableEpisode, setMaterialAvailableEpisode] = useState<number | null>(null)
   const [materialAvailableClass, setMaterialAvailableClass] = useState<number | null>(null)
-  const [showQRModal, setShowQRModal] = useState(false)
-  const [selectedQRClass, setSelectedQRClass] = useState<number | null>(null)
-  const [activeCode, setActiveCode] = useState<string | null>(null)
-  const [codeGeneratedTime, setCodeGeneratedTime] = useState<string | null>(null)
-  const [activeExitCode, setActiveExitCode] = useState<string | null>(null)
-  const [exitCodeGeneratedTime, setExitCodeGeneratedTime] = useState<string | null>(null)
   const [adminSubmissions, setAdminSubmissions] = useState<any[]>([])
   const [gradingId, setGradingId] = useState<string | null>(null)
   const [gradeInput, setGradeInput] = useState('')
@@ -405,50 +398,6 @@ export default function CourseDetailPage() {
     setIsEditingNotice(false)
   }
 
-  const generateAttendanceCode = () => {
-    if (!course) return
-
-    // 4자리 랜덤 코드 생성
-    const newCode = Math.floor(1000 + Math.random() * 9000).toString()
-    const now = new Date()
-    const generatedTime = now.toLocaleTimeString('ko-KR')
-
-    setActiveCode(newCode)
-    setCodeGeneratedTime(generatedTime)
-
-    // localStorage에 현재 활성 코드 저장
-    const codeKey = `course_code_${course.id}`
-    localStorage.setItem(codeKey, JSON.stringify({
-      code: newCode,
-      generatedAt: now.toISOString(),
-      expiresAt: new Date(now.getTime() + 5 * 60000).toISOString(), // 5분 후 만료
-    }))
-
-    toast.success(`✅ 출석 코드 생성됨: ${newCode}\n(5분 유효)`)
-  }
-
-  const generateExitCode = () => {
-    if (!course) return
-
-    // 4자리 랜덤 코드 생성
-    const newCode = Math.floor(1000 + Math.random() * 9000).toString()
-    const now = new Date()
-    const generatedTime = now.toLocaleTimeString('ko-KR')
-
-    setActiveExitCode(newCode)
-    setExitCodeGeneratedTime(generatedTime)
-
-    // localStorage에 현재 활성 퇴장 코드 저장
-    const exitCodeKey = `course_exit_code_${course.id}`
-    localStorage.setItem(exitCodeKey, JSON.stringify({
-      code: newCode,
-      generatedAt: now.toISOString(),
-      expiresAt: new Date(now.getTime() + 5 * 60000).toISOString(), // 5분 후 만료
-    }))
-
-    toast.success(`✅ 퇴장 코드 생성됨: ${newCode}\n(5분 유효)`)
-  }
-
   const handleSaveSchedule = () => {
     if (!course || schedule.length === 0) {
       toast.error('시간표를 입력하세요')
@@ -637,52 +586,6 @@ export default function CourseDetailPage() {
             ) : (
               <p className="text-gray-700">{notice || '공지사항이 없습니다'}</p>
             )}
-          </div>
-
-          {/* 출석 코드 시스템 */}
-          <div className="bg-red-50 border-2 border-red-200 p-4 rounded-lg mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="font-semibold text-red-900">🔐 출석 확인 코드</p>
-            </div>
-            {activeCode ? (
-              <div className="bg-white p-4 rounded-lg border-2 border-red-400 mb-3">
-                <p className="text-sm text-gray-600 mb-2">현재 활성 코드:</p>
-                <p className="text-4xl font-bold text-red-600 text-center mb-2">{activeCode}</p>
-                <p className="text-xs text-gray-500 text-center">생성: {codeGeneratedTime}</p>
-                <p className="text-xs text-gray-500 text-center">(5분 유효)</p>
-              </div>
-            ) : (
-              <p className="text-red-700 text-sm mb-3">아직 생성된 코드가 없습니다</p>
-            )}
-            <button
-              onClick={generateAttendanceCode}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition"
-            >
-              🔐 새 출석 코드 생성
-            </button>
-          </div>
-
-          {/* 퇴장 코드 시스템 */}
-          <div className="bg-orange-50 border-2 border-orange-200 p-4 rounded-lg mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="font-semibold text-orange-900">🚪 퇴장 확인 코드</p>
-            </div>
-            {activeExitCode ? (
-              <div className="bg-white p-4 rounded-lg border-2 border-orange-400 mb-3">
-                <p className="text-sm text-gray-600 mb-2">현재 활성 코드:</p>
-                <p className="text-4xl font-bold text-orange-600 text-center mb-2">{activeExitCode}</p>
-                <p className="text-xs text-gray-500 text-center">생성: {exitCodeGeneratedTime}</p>
-                <p className="text-xs text-gray-500 text-center">(5분 유효)</p>
-              </div>
-            ) : (
-              <p className="text-orange-700 text-sm mb-3">아직 생성된 코드가 없습니다</p>
-            )}
-            <button
-              onClick={generateExitCode}
-              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg transition"
-            >
-              🚪 새 퇴장 코드 생성
-            </button>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1369,109 +1272,6 @@ export default function CourseDetailPage() {
           )}
         </div>
 
-        {/* QR코드 출석 */}
-        <div className="bg-white rounded-lg shadow p-8 mt-8">
-          <h3 className="text-2xl font-bold text-gray-900 mb-6">📱 QR코드 출석</h3>
-
-          <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-6">
-            <p className="text-gray-700 mb-4">
-              강의 시작 시 학생들이 스캔할 수 있는 QR코드를 생성합니다.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {course?.courseType === 'episode' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    회차 선택
-                  </label>
-                  <select
-                    value={selectedEpisode}
-                    onChange={(e) => setSelectedEpisode(Number(e.target.value))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                  >
-                    {Array.from({ length: course.episodeCount || 1 }, (_, i) => (
-                      <option key={i + 1} value={i + 1}>
-                        {i + 1}회차
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  교시 선택
-                </label>
-                <select
-                  value={selectedQRClass || ''}
-                  onChange={(e) => setSelectedQRClass(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                >
-                  <option value="">선택하세요</option>
-                  {schedule.map((cls: any) => (
-                    <option key={cls.number} value={cls.number}>
-                      {cls.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <button
-              onClick={() => selectedQRClass && setShowQRModal(true)}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition disabled:opacity-50"
-              disabled={!selectedQRClass}
-            >
-              <QrCode className="w-5 h-5" />
-              QR코드 생성
-            </button>
-          </div>
-
-          {/* QR코드 모달 */}
-          {showQRModal && selectedQRClass && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">📱 QR코드 출석</h3>
-                  <button
-                    onClick={() => setShowQRModal(false)}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-
-                <div className="bg-gray-50 rounded-lg p-6 mb-4">
-                  <p className="text-sm text-gray-600 mb-4">
-                    {course?.courseType === 'episode'
-                      ? `${selectedEpisode}회차 ${schedule.find((c: any) => c.number === selectedQRClass)?.name}`
-                      : schedule.find((c: any) => c.number === selectedQRClass)?.name}
-                  </p>
-
-                  <div className="flex justify-center">
-                    <QRCodeSVG
-                      value={`${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/attend?courseId=${course?.id}&episode=${selectedEpisode}&class=${selectedQRClass}&token=${Date.now()}`}
-                      size={256}
-                      level="H"
-                      includeMargin={true}
-                    />
-                  </div>
-                </div>
-
-                <p className="text-xs text-gray-500 text-center mb-4">
-                  학생들이 이 QR코드를 스캔하면 자동 출석됩니다
-                </p>
-
-                <button
-                  onClick={() => setShowQRModal(false)}
-                  className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 rounded-lg"
-                >
-                  닫기
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
       </main>
     </div>
   )
