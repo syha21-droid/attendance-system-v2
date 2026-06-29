@@ -12,6 +12,7 @@ interface StudentWithAttendance {
   email: string
   createdAt: string
   enrolledCourses: Course[]
+  droppedOut: boolean
   attendanceCount: number
   lateCount: number
   absentCount: number
@@ -29,6 +30,7 @@ export default function StudentsPage() {
   const [managingStudent, setManagingStudent] = useState<StudentWithAttendance | null>(null)
   const [editingCourses, setEditingCourses] = useState<Course[]>([])
   const [dropoutTarget, setDropoutTarget] = useState<StudentWithAttendance | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<StudentWithAttendance | null>(null)
 
   useEffect(() => { loadStudents() }, [])
 
@@ -94,7 +96,8 @@ export default function StudentsPage() {
           }
         })
 
-        result.push({ id: student.id, name: student.name, email: student.email, createdAt: student.createdAt, enrolledCourses, attendanceCount, lateCount, absentCount, excusedCount, exitCount, lastExitTime })
+        const droppedOut = localStorage.getItem(`dropout_${student.id}`) === 'true'
+        result.push({ id: student.id, name: student.name, email: student.email, createdAt: student.createdAt, enrolledCourses, droppedOut, attendanceCount, lateCount, absentCount, excusedCount, exitCount, lastExitTime })
       })
 
       result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -120,12 +123,34 @@ export default function StudentsPage() {
     loadStudents()
   }
 
-  // 탈락 처리: 모든 강의 수강 취소
+  // 탈락 처리: 모든 강의 수강 취소 + 탈락 플래그
   const confirmDropout = () => {
     if (!dropoutTarget) return
     localStorage.setItem(`enrolled_${dropoutTarget.id}`, JSON.stringify([]))
+    localStorage.setItem(`dropout_${dropoutTarget.id}`, 'true')
     toast.success(`${dropoutTarget.name}님이 탈락 처리되었습니다`)
     setDropoutTarget(null)
+    loadStudents()
+  }
+
+  // 계정 완전 삭제
+  const confirmDelete = () => {
+    if (!deleteTarget) return
+    const s = deleteTarget
+    // users 목록에서 제거
+    const usersRaw = localStorage.getItem('users')
+    if (usersRaw) localStorage.setItem('users', JSON.stringify(JSON.parse(usersRaw).filter((u: any) => u.id !== s.id)))
+    // students 목록에서 제거
+    const stRaw = localStorage.getItem('students')
+    if (stRaw) localStorage.setItem('students', JSON.stringify(JSON.parse(stRaw).filter((u: any) => u.id !== s.id)))
+    // 관련 localStorage 키 전부 삭제
+    Object.keys(localStorage).forEach((key) => {
+      if (key === `enrolled_${s.id}` || key === `dropout_${s.id}` || key.startsWith(`attendance_${s.id}_`)) {
+        localStorage.removeItem(key)
+      }
+    })
+    toast.success(`${s.name}님 계정이 삭제되었습니다`)
+    setDeleteTarget(null)
     loadStudents()
   }
 
@@ -217,7 +242,7 @@ export default function StudentsPage() {
                         }}>
                           {student.enrolledCourses.length > 0 ? `${student.enrolledCourses.length}개 수강` : '미수강'}
                         </span>
-                        {student.enrolledCourses.length === 0 && (
+                        {student.droppedOut && (
                           <span style={{ fontSize: '10px', fontWeight: '700', color: '#ef4444', padding: '2px 8px', border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.06)', letterSpacing: '0.08em' }}>
                             탈락
                           </span>
@@ -229,7 +254,9 @@ export default function StudentsPage() {
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {student.enrolledCourses.length === 0 ? (
-                          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.22)', fontStyle: 'italic' }}>등록된 강의 없음</span>
+                          <span style={{ fontSize: '12px', color: student.droppedOut ? 'rgba(239,68,68,0.50)' : 'rgba(255,255,255,0.22)', fontStyle: 'italic' }}>
+                            {student.droppedOut ? '수강 자격 없음' : '수강 강의 없음'}
+                          </span>
                         ) : student.enrolledCourses.map((c) => (
                           <span key={c.id} style={{ fontSize: '11px', fontWeight: '500', color: 'rgba(255,255,255,0.55)', padding: '3px 10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                             {c.name}
@@ -249,13 +276,23 @@ export default function StudentsPage() {
                           <Settings style={{ width: '13px', height: '13px' }} />
                           수강 변경
                         </button>
+                        {!student.droppedOut && (
+                          <button
+                            onClick={() => setDropoutTarget(student)}
+                            className="flex items-center gap-1.5"
+                            style={{ padding: '7px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171', fontSize: '12px', fontWeight: '600', cursor: 'pointer', transition: 'background 0.15s' }}
+                          >
+                            <UserX style={{ width: '13px', height: '13px' }} />
+                            탈락
+                          </button>
+                        )}
                         <button
-                          onClick={() => setDropoutTarget(student)}
+                          onClick={() => setDeleteTarget(student)}
                           className="flex items-center gap-1.5"
-                          style={{ padding: '7px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171', fontSize: '12px', fontWeight: '600', cursor: 'pointer', transition: 'background 0.15s' }}
+                          style={{ padding: '7px 12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.35)', fontSize: '12px', fontWeight: '600', cursor: 'pointer', transition: 'background 0.15s' }}
                         >
-                          <UserX style={{ width: '13px', height: '13px' }} />
-                          탈락
+                          <Trash2 style={{ width: '13px', height: '13px' }} />
+                          삭제
                         </button>
                       </div>
                       {/* 출석 통계 */}
@@ -361,6 +398,27 @@ export default function StudentsPage() {
               </button>
               <button onClick={saveEnrollmentChanges} className="btn-gold" style={{ flex: 1, height: '44px', fontSize: '13px' }}>
                 변경 저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 계정 삭제 확인 모달 */}
+      {deleteTarget && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.75)' }}>
+          <div style={{ background: '#0F1420', border: '1px solid rgba(255,255,255,0.12)', width: '100%', maxWidth: '360px', padding: '28px' }}>
+            <p style={{ fontSize: '15px', fontWeight: '700', color: 'white', marginBottom: '10px' }}>계정 삭제</p>
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, marginBottom: '24px' }}>
+              <span style={{ color: 'rgba(255,255,255,0.80)', fontWeight: '600' }}>{deleteTarget.name}</span> 계정을 영구 삭제합니다.<br />
+              출석 기록·수강 내역이 모두 제거됩니다.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteTarget(null)} style={{ flex: 1, height: '42px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(255,255,255,0.45)', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                취소
+              </button>
+              <button onClick={confirmDelete} style={{ flex: 1, height: '42px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.70)', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                삭제
               </button>
             </div>
           </div>
