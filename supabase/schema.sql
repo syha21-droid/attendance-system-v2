@@ -86,6 +86,19 @@ alter table app_users enable row level security;
 alter table courses enable row level security;
 alter table enrollments enable row level security;
 
+-- 접속(로그인) 이력 — 기기 상관없이 관리자가 전체 조회 (학생 포함)
+create table if not exists login_history (
+  id uuid primary key default gen_random_uuid(),
+  user_id text,
+  name text,
+  email text,
+  is_admin boolean not null default false,
+  device text,
+  created_at timestamptz default now()
+);
+alter table login_history enable row level security;
+-- 정책 미추가 → 서버(service_role)만 접근.
+
 -- 기본 강의 3개 (클라이언트 기본값과 동일한 id) — 처음 1회만
 insert into courses (id, name, instructor, course_type) values
   ('1', 'Python 기초', '김교수', 'session'),

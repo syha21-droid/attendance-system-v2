@@ -8,6 +8,7 @@ import { useStore } from '@/store/useStore'
 import { apiSignup } from '@/lib/dataStore'
 import { setSessionCookie } from '@/lib/session'
 import { checkDeviceLogin, bindDeviceOwner } from '@/lib/deviceLock'
+import { recordLogin } from '@/lib/loginHistory'
 
 const ADMIN_CODE = 'RD-ADMIN-2025'
 
@@ -66,6 +67,7 @@ export default function SignUp() {
     localStorage.setItem('user', JSON.stringify(user))
     setSessionCookie(user)
     setUser(user as any)
+    recordLogin(user)
 
     if (!user.isAdmin) {
       const existing = localStorage.getItem('students')

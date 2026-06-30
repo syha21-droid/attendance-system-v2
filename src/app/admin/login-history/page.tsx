@@ -19,11 +19,30 @@ export default function LoginHistoryPage() {
   const [records, setRecords] = useState<LoginRecord[]>([])
   const [filter, setFilter] = useState<'all' | 'admin' | 'student'>('all')
 
+  const [source, setSource] = useState<'server' | 'local'>('local')
+
   useEffect(() => {
-    const saved = localStorage.getItem('login_history')
-    if (saved) {
-      try { setRecords(JSON.parse(saved)) } catch { setRecords([]) }
+    const readLocal = (): LoginRecord[] => {
+      const saved = localStorage.getItem('login_history')
+      if (!saved) return []
+      try { return JSON.parse(saved) } catch { return [] }
     }
+    ;(async () => {
+      // 서버 우선(기기 상관없이 전체) → 없으면 로컬 폴백
+      try {
+        const res = await fetch('/api/login-history', { cache: 'no-store' })
+        if (res.ok) {
+          const d = await res.json()
+          if (Array.isArray(d.records) && d.records.length > 0) {
+            setRecords(d.records)
+            setSource('server')
+            return
+          }
+        }
+      } catch {}
+      setRecords(readLocal())
+      setSource('local')
+    })()
   }, [])
 
   const filtered = records.filter((r) => {
@@ -75,7 +94,12 @@ export default function LoginHistoryPage() {
         {/* 필터 + 목록 */}
         <div className="rd-surface overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            <h2 style={{ fontSize: '13px', fontWeight: '600', color: 'rgba(255,255,255,0.70)' }}>접속 이력</h2>
+            <div>
+              <h2 style={{ fontSize: '13px', fontWeight: '600', color: 'rgba(255,255,255,0.70)' }}>접속 이력</h2>
+              <p style={{ fontSize: '10px', color: source === 'server' ? '#4ade80' : 'rgba(255,255,255,0.30)', marginTop: '2px' }}>
+                {source === 'server' ? '🛰️ 서버 기록 (모든 기기·학생 포함)' : '💾 이 기기 기록만 (서버 미설정 시)'}
+              </p>
+            </div>
             <div className="flex gap-2">
               {(['all', 'admin', 'student'] as const).map((f) => (
                 <button

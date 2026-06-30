@@ -9,6 +9,7 @@ import { useStore } from '@/store/useStore'
 import { apiLogin } from '@/lib/dataStore'
 import { setSessionCookie } from '@/lib/session'
 import { checkDeviceLogin, bindDeviceOwner } from '@/lib/deviceLock'
+import { recordLogin } from '@/lib/loginHistory'
 
 const features = [
   { icon: MapPin,      title: 'GPS 위치 인증',      desc: '현장에서만 출석 가능한 위치 기반 시스템' },
@@ -53,14 +54,8 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(user))
       setSessionCookie(user)
       setUser(user as any)
-      // 로그인 기록 저장
-      const history = JSON.parse(localStorage.getItem('login_history') || '[]')
-      history.unshift({
-        userId: user.id, name: user.name, email: user.email,
-        isAdmin: user.isAdmin, time: new Date().toISOString(),
-        device: navigator.userAgent.includes('Mobile') ? '모바일' : 'PC',
-      })
-      localStorage.setItem('login_history', JSON.stringify(history.slice(0, 300)))
+      // 로그인 기록 저장 (서버 + 로컬)
+      recordLogin(user)
       toast.success('로그인 성공')
       setTimeout(() => router.push(user.isAdmin ? '/admin' : '/student'), 400)
     } else {
