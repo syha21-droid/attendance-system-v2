@@ -52,11 +52,14 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(user))
       setSessionCookie(user)
       setUser(user as any)
-      // 이 탭 고유 토큰 발급 → 다른 탭 storage 이벤트로 킥
+      // 이 탭을 활성 탭으로 등록 → 다른 탭은 storage 이벤트로 감지해서 킥됨
       if (!user.isAdmin) {
-        const tabToken = crypto.randomUUID()
-        sessionStorage.setItem('tabToken', tabToken)
-        localStorage.setItem('activeTabToken', tabToken)
+        const myTabId = sessionStorage.getItem('myTabId') || (() => {
+          const id = crypto.randomUUID()
+          sessionStorage.setItem('myTabId', id)
+          return id
+        })()
+        localStorage.setItem('activeTabId', myTabId)
       }
       recordLogin(user)
       toast.success('로그인 성공')

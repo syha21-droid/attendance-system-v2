@@ -17,6 +17,8 @@ export async function doLogout(userId?: string) {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('user')
     localStorage.removeItem('sessionToken')
+    localStorage.removeItem('activeTabId')
+    sessionStorage.removeItem('myTabId')
   }
   clearSessionCookie()
 }
