@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useStore } from '@/store/useStore'
@@ -11,6 +11,8 @@ import { doLogout } from '@/lib/logout'
 export default function SessionProvider({ children }: { children: React.ReactNode }) {
   const setUser = useStore((state) => state.setUser)
   const router = useRouter()
+  const routerRef = useRef(router)
+  routerRef.current = router
 
   useEffect(() => {
     const cookieUser = getSessionCookie()
@@ -31,7 +33,7 @@ export default function SessionProvider({ children }: { children: React.ReactNod
       }
     }
 
-    // 항상 리스너 설치 — 수신 시점에 localStorage 확인해서 같은 계정이면 킥
+    // 항상 리스너 1개만 — router는 ref로 참조해 effect 재실행 방지
     const unsubscribe = listenForKick((incomingId) => {
       try {
         const raw = localStorage.getItem('user')
@@ -42,11 +44,12 @@ export default function SessionProvider({ children }: { children: React.ReactNod
       doLogout()
       setUser(null as any)
       toast.error('다른 탭에서 로그인되어 이 탭은 로그아웃됩니다.', { duration: 4000 })
-      setTimeout(() => router.push('/login'), 1500)
+      setTimeout(() => routerRef.current.push('/login'), 1500)
     })
 
     return unsubscribe
-  }, [setUser, router])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // 의도적으로 빈 배열 — 앱 전체에서 리스너 1개만 유지
 
   return <>{children}</>
 }
