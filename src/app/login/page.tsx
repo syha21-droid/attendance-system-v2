@@ -8,7 +8,7 @@ import { MapPin, Clock, ShieldCheck } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { apiLogin } from '@/lib/dataStore'
 import { setSessionCookie } from '@/lib/session'
-import { checkDeviceLogin, bindDeviceOwner } from '@/lib/deviceLock'
+import { checkAndBindDevice } from '@/lib/deviceLock'
 import { recordLogin } from '@/lib/loginHistory'
 
 const features = [
@@ -39,17 +39,13 @@ export default function Login() {
     }
 
     if (user) {
-      // 기기당 학생 1명 고정 (관리자는 예외)
-      const lock = checkDeviceLogin(user)
+      // 계정 1개 = 기기 1대 (서버 강제, 관리자 예외)
+      const lock = await checkAndBindDevice(user)
       if (!lock.ok) {
-        toast.error(
-          `이 기기는 이미 '${lock.ownerName}' 학생 계정에 연결되어 있습니다. 다른 계정으로는 로그인할 수 없습니다. (관리자에게 기기 잠금 해제를 요청하세요)`,
-          { duration: 6000 }
-        )
+        toast.error(lock.error || '이 계정은 다른 기기에서 사용 중입니다.', { duration: 6000 })
         setLoading(false)
         return
       }
-      bindDeviceOwner(user)
 
       localStorage.setItem('user', JSON.stringify(user))
       setSessionCookie(user)

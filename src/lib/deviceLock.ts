@@ -1,62 +1,54 @@
 /**
- * 기기당 학생 1명 고정 (대리 출석/계정 돌려쓰기 방지)
+ * 계정 1개 = 기기 1대 (서버 강제).
  *
- * - 한 기기(브라우저)에 처음 로그인한 학생 계정을 묶어 둔다.
- * - 다른 학생이 같은 기기로 로그인하려 하면 차단한다.
- * - 관리자 계정은 예외(자유 로그인) — 잠긴 기기에 들어가 잠금을 해제할 수 있다.
+ * - 서버(device_bindings)에서 계정↔기기를 1:1로 묶는다.
+ * - 시크릿모드/다른 기기로 로그인 시도해도 서버가 막는다(=다른 deviceId).
+ * - 관리자(isAdmin)는 예외 — 여러 기기에서 자유롭게 로그인.
+ * - 잠금 해제는 관리자 화면에서 서버 바인딩을 삭제.
  *
- * localStorage 기반이라 브라우저 데이터를 지우면 초기화된다(=A안의 기존 모델과 동일).
- * 더 강한 서버 강제(기기↔계정 DB 바인딩)가 필요하면 별도 작업.
+ * DB(device_bindings) 미설정 시에는 잠그지 않음(락아웃 방지).
  */
 
-const KEY = 'deviceOwner'
-
-export interface DeviceOwner {
-  id: string
-  name: string
-  boundAt: string
-}
-
-export function getDeviceOwner(): DeviceOwner | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = localStorage.getItem(KEY)
-    return raw ? (JSON.parse(raw) as DeviceOwner) : null
-  } catch {
-    return null
+/** 이 기기의 안정적인 식별자 (브라우저 프로필별). 시크릿모드는 새 id가 됨. */
+export function getDeviceId(): string {
+  if (typeof window === 'undefined') return 'server'
+  let id = localStorage.getItem('deviceId')
+  if (!id) {
+    id =
+      (crypto as any)?.randomUUID
+        ? crypto.randomUUID()
+        : 'd-' + Math.random().toString(36).slice(2) + Date.now().toString(36)
+    localStorage.setItem('deviceId', id)
   }
-}
-
-/** 이 기기를 학생 계정에 묶는다(이미 같은 계정이면 유지). */
-export function bindDeviceOwner(user: { id: string; name: string }) {
-  if (typeof window === 'undefined') return
-  const existing = getDeviceOwner()
-  if (existing && existing.id === user.id) return
-  localStorage.setItem(
-    KEY,
-    JSON.stringify({ id: user.id, name: user.name, boundAt: new Date().toISOString() })
-  )
-}
-
-/** 관리자용: 이 기기의 잠금 해제. */
-export function clearDeviceOwner() {
-  if (typeof window === 'undefined') return
-  localStorage.removeItem(KEY)
+  return id
 }
 
 /**
- * 로그인 허용 여부 판정.
- * - 관리자: 항상 허용(묶지 않음)
- * - 학생: 미잠금이거나 같은 계정이면 허용, 다른 계정이면 차단
+ * 로그인/가입 시 호출. 서버에 계정↔기기 바인딩을 확인·등록한다.
+ * 반환 { ok, error }. ok=false면 로그인 차단.
  */
-export function checkDeviceLogin(user: { id: string; name: string; isAdmin?: boolean }): {
-  ok: boolean
-  ownerName?: string
-} {
-  if (user.isAdmin) return { ok: true }
-  const owner = getDeviceOwner()
-  if (owner && owner.id !== user.id) {
-    return { ok: false, ownerName: owner.name }
+export async function checkAndBindDevice(user: {
+  id: string
+  name: string
+  isAdmin?: boolean
+}): Promise<{ ok: boolean; error?: string }> {
+  if (user.isAdmin) return { ok: true } // 관리자 예외
+  try {
+    const res = await fetch('/api/device-bind', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        userName: user.name,
+        deviceId: getDeviceId(),
+        isAdmin: !!user.isAdmin,
+      }),
+    })
+    const d = await res.json()
+    if (d.ok) return { ok: true }
+    return { ok: false, error: d.error || '이 계정은 다른 기기에서 사용 중입니다.' }
+  } catch {
+    // 네트워크 오류 시 잠그지 않음(락아웃 방지)
+    return { ok: true }
   }
-  return { ok: true }
 }

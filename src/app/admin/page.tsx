@@ -10,7 +10,6 @@ import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
 import { loadCourses, createCourse, deleteCourse, syncLocalCoursesToServer, loadStudents } from '@/lib/dataStore'
 import { clearSessionCookie } from '@/lib/session'
-import { getDeviceOwner, clearDeviceOwner } from '@/lib/deviceLock'
 
 export default function AdminPage() {
   const router = useRouter()
@@ -23,7 +22,7 @@ export default function AdminPage() {
   const [newEpisodeCount, setNewEpisodeCount] = useState(9)
   const [studentCount, setStudentCount] = useState(0)
   const [avgAttendanceRate, setAvgAttendanceRate] = useState(0)
-  const [deviceOwner, setDeviceOwnerState] = useState<{ id: string; name: string } | null>(null)
+  const [bindings, setBindings] = useState<{ user_id: string; user_name: string; device_id: string }[]>([])
 
   useIsomorphicLayoutEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -31,7 +30,7 @@ export default function AdminPage() {
     const userData = JSON.parse(savedUser)
     if (!userData.isAdmin) { router.push('/student'); return }
     setUser(userData)
-    setDeviceOwnerState(getDeviceOwner())
+    loadBindings()
 
     ;(async () => {
       const beforeRaw = localStorage.getItem('courses')
@@ -125,10 +124,27 @@ export default function AdminPage() {
 
   const handleLogout = () => { clearSessionCookie(); localStorage.removeItem('user'); setUser(null); router.push('/login') }
 
-  const handleUnlockDevice = () => {
-    clearDeviceOwner()
-    setDeviceOwnerState(null)
-    toast.success('이 기기의 학생 잠금을 해제했습니다. 다른 학생이 로그인할 수 있습니다.')
+  const loadBindings = async () => {
+    try {
+      const res = await fetch('/api/device-bind', { cache: 'no-store' })
+      const d = await res.json()
+      if (res.ok) setBindings(d.bindings || [])
+    } catch {}
+  }
+
+  const handleReleaseBinding = async (userId: string, name: string) => {
+    try {
+      const res = await fetch(`/api/device-bind?userId=${encodeURIComponent(userId)}`, { method: 'DELETE' })
+      const d = await res.json()
+      if (d.ok) {
+        toast.success(`${name}님의 기기 잠금을 해제했습니다. 다른 기기에서 로그인할 수 있습니다.`)
+        loadBindings()
+      } else {
+        toast.error(d.error || '해제 실패')
+      }
+    } catch {
+      toast.error('네트워크 오류')
+    }
   }
 
   if (!user) {
@@ -326,28 +342,36 @@ export default function AdminPage() {
             출석 현황 엑셀 다운로드
           </button>
 
-          {/* 기기 잠금 (기기당 학생 1명 고정) */}
+          {/* 기기 잠금 (계정 1개 = 기기 1대, 학생만) */}
           <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            <p style={{ fontSize: '12px', fontWeight: '600', color: 'rgba(255,255,255,0.55)', marginBottom: '6px' }}>이 기기의 학생 잠금</p>
-            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.30)', marginBottom: '10px', lineHeight: 1.6 }}>
-              한 기기는 학생 한 명에게만 연결됩니다(대리 출석 방지). 이 기기를 다른 학생이 쓰려면 잠금을 해제하세요.
+            <div className="flex items-center justify-between" style={{ marginBottom: '6px' }}>
+              <p style={{ fontSize: '12px', fontWeight: '600', color: 'rgba(255,255,255,0.55)' }}>기기 잠금 (계정당 1기기)</p>
+              <button onClick={loadBindings} style={{ fontSize: '11px', color: 'rgba(255,255,255,0.40)', background: 'transparent', border: 'none', cursor: 'pointer' }}>새로고침</button>
+            </div>
+            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.30)', marginBottom: '12px', lineHeight: 1.6 }}>
+              학생은 한 계정으로 한 기기에서만 로그인됩니다(시크릿모드·다른 기기 포함, 대리 출석/계정 공유 방지). 학생이 기기를 바꾸려면 아래에서 해제하세요. 관리자는 제한 없음.
             </p>
-            {deviceOwner ? (
-              <div className="flex items-center gap-3" style={{ flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.70)', padding: '6px 12px', border: '1px solid rgba(201,148,26,0.30)', background: 'rgba(201,148,26,0.07)' }}>
-                  🔒 연결됨: <b style={{ color: 'white' }}>{deviceOwner.name}</b>
-                </span>
-                <button
-                  onClick={handleUnlockDevice}
-                  style={{ padding: '8px 14px', border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#f87171', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
-                >
-                  기기 잠금 해제
-                </button>
-              </div>
-            ) : (
+            {bindings.length === 0 ? (
               <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.40)', padding: '6px 12px', border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.03)' }}>
-                🔓 잠금 없음 (이 기기는 비어 있음)
+                🔓 현재 잠긴 계정이 없습니다
               </span>
+            ) : (
+              <div className="flex flex-col gap-2" style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                {bindings.map((b) => (
+                  <div key={b.user_id} className="flex items-center justify-between" style={{ padding: '8px 12px', border: '1px solid rgba(201,148,26,0.25)', background: 'rgba(201,148,26,0.06)' }}>
+                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)' }}>
+                      🔒 <b style={{ color: 'white' }}>{b.user_name || b.user_id}</b>
+                      <span style={{ color: 'rgba(255,255,255,0.30)', fontSize: '10px', marginLeft: '6px' }}>기기 {String(b.device_id).slice(0, 6)}…</span>
+                    </span>
+                    <button
+                      onClick={() => handleReleaseBinding(b.user_id, b.user_name || b.user_id)}
+                      style={{ padding: '6px 12px', border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#f87171', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
+                    >
+                      해제
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>

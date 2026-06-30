@@ -99,6 +99,18 @@ create table if not exists login_history (
 alter table login_history enable row level security;
 -- 정책 미추가 → 서버(service_role)만 접근.
 
+-- 기기 바인딩 — 계정 1개 = 기기 1대 (서버 강제, 시크릿모드/모든 기기 포함)
+-- user_id PK → 한 계정은 한 기기에만. device_id 인덱스로 한 기기 한 계정도 검사.
+create table if not exists device_bindings (
+  user_id text primary key,
+  user_name text,
+  device_id text not null,
+  bound_at timestamptz default now()
+);
+create index if not exists device_bindings_device_idx on device_bindings(device_id);
+alter table device_bindings enable row level security;
+-- 정책 미추가 → 서버(service_role)만 접근.
+
 -- 기본 강의 3개 (클라이언트 기본값과 동일한 id) — 처음 1회만
 insert into courses (id, name, instructor, course_type) values
   ('1', 'Python 기초', '김교수', 'session'),
