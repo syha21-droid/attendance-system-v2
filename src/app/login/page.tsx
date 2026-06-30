@@ -8,6 +8,7 @@ import { MapPin, Clock, ShieldCheck } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { apiLogin } from '@/lib/dataStore'
 import { setSessionCookie } from '@/lib/session'
+import { checkDeviceLogin, bindDeviceOwner } from '@/lib/deviceLock'
 
 const features = [
   { icon: MapPin,      title: 'GPS 위치 인증',      desc: '현장에서만 출석 가능한 위치 기반 시스템' },
@@ -37,6 +38,18 @@ export default function Login() {
     }
 
     if (user) {
+      // 기기당 학생 1명 고정 (관리자는 예외)
+      const lock = checkDeviceLogin(user)
+      if (!lock.ok) {
+        toast.error(
+          `이 기기는 이미 '${lock.ownerName}' 학생 계정에 연결되어 있습니다. 다른 계정으로는 로그인할 수 없습니다. (관리자에게 기기 잠금 해제를 요청하세요)`,
+          { duration: 6000 }
+        )
+        setLoading(false)
+        return
+      }
+      bindDeviceOwner(user)
+
       localStorage.setItem('user', JSON.stringify(user))
       setSessionCookie(user)
       setUser(user as any)

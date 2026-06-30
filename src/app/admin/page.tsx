@@ -10,6 +10,7 @@ import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
 import { loadCourses, createCourse, deleteCourse, syncLocalCoursesToServer, loadStudents } from '@/lib/dataStore'
 import { clearSessionCookie } from '@/lib/session'
+import { getDeviceOwner, clearDeviceOwner } from '@/lib/deviceLock'
 
 export default function AdminPage() {
   const router = useRouter()
@@ -22,6 +23,7 @@ export default function AdminPage() {
   const [newEpisodeCount, setNewEpisodeCount] = useState(9)
   const [studentCount, setStudentCount] = useState(0)
   const [avgAttendanceRate, setAvgAttendanceRate] = useState(0)
+  const [deviceOwner, setDeviceOwnerState] = useState<{ id: string; name: string } | null>(null)
 
   useIsomorphicLayoutEffect(() => {
     const savedUser = localStorage.getItem('user')
@@ -29,6 +31,7 @@ export default function AdminPage() {
     const userData = JSON.parse(savedUser)
     if (!userData.isAdmin) { router.push('/student'); return }
     setUser(userData)
+    setDeviceOwnerState(getDeviceOwner())
 
     ;(async () => {
       const beforeRaw = localStorage.getItem('courses')
@@ -121,6 +124,12 @@ export default function AdminPage() {
   }
 
   const handleLogout = () => { clearSessionCookie(); localStorage.removeItem('user'); setUser(null); router.push('/login') }
+
+  const handleUnlockDevice = () => {
+    clearDeviceOwner()
+    setDeviceOwnerState(null)
+    toast.success('이 기기의 학생 잠금을 해제했습니다. 다른 학생이 로그인할 수 있습니다.')
+  }
 
   if (!user) {
     return (
@@ -316,6 +325,31 @@ export default function AdminPage() {
             <Download style={{ width: '15px', height: '15px' }} />
             출석 현황 엑셀 다운로드
           </button>
+
+          {/* 기기 잠금 (기기당 학생 1명 고정) */}
+          <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <p style={{ fontSize: '12px', fontWeight: '600', color: 'rgba(255,255,255,0.55)', marginBottom: '6px' }}>이 기기의 학생 잠금</p>
+            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.30)', marginBottom: '10px', lineHeight: 1.6 }}>
+              한 기기는 학생 한 명에게만 연결됩니다(대리 출석 방지). 이 기기를 다른 학생이 쓰려면 잠금을 해제하세요.
+            </p>
+            {deviceOwner ? (
+              <div className="flex items-center gap-3" style={{ flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.70)', padding: '6px 12px', border: '1px solid rgba(201,148,26,0.30)', background: 'rgba(201,148,26,0.07)' }}>
+                  🔒 연결됨: <b style={{ color: 'white' }}>{deviceOwner.name}</b>
+                </span>
+                <button
+                  onClick={handleUnlockDevice}
+                  style={{ padding: '8px 14px', border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#f87171', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                >
+                  기기 잠금 해제
+                </button>
+              </div>
+            ) : (
+              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.40)', padding: '6px 12px', border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.03)' }}>
+                🔓 잠금 없음 (이 기기는 비어 있음)
+              </span>
+            )}
+          </div>
         </div>
 
         {/* 관리 메뉴 */}
