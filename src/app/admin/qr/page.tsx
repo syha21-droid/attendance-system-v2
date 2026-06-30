@@ -389,7 +389,7 @@ export default function AdminQrScannerPage() {
           </div>
         ) : (
           /* ===== 인식기 진행 ===== */
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div style={{ maxWidth: '560px', margin: '0 auto' }}>
             {/* 카메라 */}
             <div className="rd-surface p-5">
               <div className="flex items-center justify-between" style={{ marginBottom: '14px' }}>
@@ -428,90 +428,22 @@ export default function AdminQrScannerPage() {
                 학생의 <b style={{ color: 'rgba(255,255,255,0.6)' }}>출석 QR</b>을 사각형 안에 비추면 자동 인식됩니다
               </p>
 
-              <button onClick={() => { stopScanner(); setSession(null); setScans([]) }} style={{ width: '100%', marginTop: '14px', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.55)', fontSize: '13px', cursor: 'pointer' }}>
+              {/* 인식된 학생 — 따로 페이지로 열기 */}
+              <button
+                onClick={() => {
+                  if (!session) return
+                  const url = `/admin/qr/list?session=${session.id}&radius=${session.radius_m}&name=${encodeURIComponent(session.name)}`
+                  window.open(url, '_blank')
+                }}
+                className="btn-gold"
+                style={{ width: '100%', marginTop: '14px', height: '48px', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                <Users style={{ width: '16px', height: '16px' }} /> 인식된 학생 보기 ({scans.length}명) · 따로 페이지
+              </button>
+
+              <button onClick={() => { stopScanner(); setSession(null); setScans([]) }} style={{ width: '100%', marginTop: '10px', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.55)', fontSize: '13px', cursor: 'pointer' }}>
                 인식기 종료
               </button>
-            </div>
-
-            {/* 인식 목록 */}
-            <div className="rd-surface p-5">
-              <div className="flex items-center justify-between" style={{ marginBottom: '14px' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Users style={{ width: '16px', height: '16px', color: '#C9941A' }} /> 인식된 학생
-                </h3>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', background: 'rgba(74,222,128,0.10)', padding: '3px 10px', borderRadius: '999px' }}>현장 {inRangeCount}</span>
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.65)', background: 'rgba(255,255,255,0.06)', padding: '3px 10px', borderRadius: '999px' }}>전체 {scans.length}</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '460px', overflowY: 'auto' }}>
-                {scans.length === 0 ? (
-                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.25)', textAlign: 'center', padding: '40px 0' }}>아직 인식된 학생이 없습니다</p>
-                ) : (
-                  scans.map((s, i) => {
-                    const hasLoc = s.entry_lat != null && s.entry_lng != null
-                    const inRange = s.entry_distance_m != null && s.entry_distance_m <= (session.radius_m || 200)
-                    return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                        <div>
-                          <p style={{ fontSize: '14px', fontWeight: '700', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span>{hasLoc ? (inRange ? '🟢' : '🟠') : '⚪'} {s.user_name || s.user_id}</span>
-                            {String(s.user_id).startsWith('ext-') && (
-                              <span style={{ fontSize: '10px', fontWeight: '700', color: '#C9941A', background: 'rgba(201,148,26,0.10)', border: '1px solid rgba(201,148,26,0.30)', padding: '1px 6px', borderRadius: '4px' }}>외부</span>
-                            )}
-                          </p>
-                          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '2px' }}>
-                            인식 {fmt(s.entry_at)}
-                            {s.entry_distance_m != null ? ` · 약 ${s.entry_distance_m}m` : ' · 위치 없음'}
-                          </p>
-                          {hasLoc && (
-                            <a
-                              href={`https://www.google.com/maps?q=${s.entry_lat},${s.entry_lng}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ fontSize: '11px', color: '#C9941A', textDecoration: 'none' }}
-                            >
-                              🗺️ 위치 보기
-                            </a>
-                          )}
-                        </div>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: hasLoc ? (inRange ? '#4ade80' : '#fb923c') : 'rgba(255,255,255,0.40)' }}>
-                          {hasLoc ? (inRange ? '현장' : '현장 밖') : '위치없음'}
-                        </span>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-
-              {/* 토요특강 · 외부 참가자 직접 추가 (실시간 인식 목록 아래) */}
-              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                <p style={{ fontSize: '13px', fontWeight: '700', color: '#C9941A', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  🎟️ 토요특강 · 외부 참가자 추가
-                </p>
-                <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '10px', lineHeight: 1.6 }}>
-                  계정·QR 없이 오신 외부 참가자는 이름만 입력하면 바로 출석에 추가됩니다.
-                </p>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    value={extName}
-                    onChange={(e) => setExtName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addExternal()}
-                    placeholder="외부 참가자 이름"
-                    className="rd-input"
-                    style={{ flex: 1 }}
-                  />
-                  <button
-                    onClick={addExternal}
-                    disabled={addingExt}
-                    className="btn-gold"
-                    style={{ padding: '0 18px', fontSize: '13px', whiteSpace: 'nowrap', opacity: addingExt ? 0.5 : 1 }}
-                  >
-                    {addingExt ? '추가중' : '출석 추가'}
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         )}
