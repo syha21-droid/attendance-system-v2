@@ -10,7 +10,6 @@ import { apiLogin } from '@/lib/dataStore'
 import { setSessionCookie } from '@/lib/session'
 import { checkAndBindDevice } from '@/lib/deviceLock'
 import { recordLogin } from '@/lib/loginHistory'
-import { broadcastLogin } from '@/lib/singleTab'
 
 const features = [
   { icon: MapPin,      title: 'GPS 위치 인증',      desc: '현장에서만 출석 가능한 위치 기반 시스템' },
@@ -53,7 +52,12 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(user))
       setSessionCookie(user)
       setUser(user as any)
-      broadcastLogin(user.id)
+      // 이 탭 고유 토큰 발급 → 다른 탭 storage 이벤트로 킥
+      if (!user.isAdmin) {
+        const tabToken = crypto.randomUUID()
+        sessionStorage.setItem('tabToken', tabToken)
+        localStorage.setItem('activeTabToken', tabToken)
+      }
       recordLogin(user)
       toast.success('로그인 성공')
       setTimeout(() => router.push(user.isAdmin ? '/admin' : '/student'), 400)
