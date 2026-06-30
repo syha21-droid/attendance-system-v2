@@ -28,8 +28,17 @@ export default function StudentQrPage() {
   const [tick, setTick] = useState(0)
   const locRef = useRef<{ lat: number; lng: number } | null>(null)
   const watchRef = useRef<number | null>(null)
+  const deviceIdRef = useRef<string>('')
 
   useEffect(() => {
+    // 기기 고유 ID — localStorage에 영구 저장 (기기 1대 = 1학생 제한용)
+    let did = localStorage.getItem('rdDeviceId')
+    if (!did) {
+      did = 'dev-' + crypto.randomUUID()
+      localStorage.setItem('rdDeviceId', did)
+    }
+    deviceIdRef.current = did
+
     const saved = localStorage.getItem('user')
     if (saved) {
       // 로그인된 사용자(학생/관리자 미리보기)는 본인 신원 사용
@@ -83,6 +92,7 @@ export default function StudentQrPage() {
         lat: l?.lat,
         lng: l?.lng,
         ts: getTrustedNow().getTime(),
+        did: deviceIdRef.current,
       })
     )
     setTick((t) => t + 1)

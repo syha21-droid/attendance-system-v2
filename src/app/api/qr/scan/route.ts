@@ -88,7 +88,27 @@ export async function POST(req: Request) {
 
   const userId = String(payload.uid)
   const userName = payload.name ? String(payload.name) : userId
+  const deviceId = payload.did ? String(payload.did) : null
   const now = new Date().toISOString()
+
+  // 동일 기기가 이미 다른 학생을 등록했는지 확인 (기기 1대 = 1학생 제한)
+  if (deviceId) {
+    const { data: deviceRecord } = await db
+      .from('attendance_records')
+      .select('user_id, user_name')
+      .eq('session_id', sessionId)
+      .eq('device_id', deviceId)
+      .neq('user_id', userId)
+      .maybeSingle()
+
+    if (deviceRecord) {
+      return Response.json({
+        ok: false,
+        reason: 'device_conflict',
+        error: `이 기기는 이미 ${deviceRecord.user_name}님의 출석을 등록했습니다. 기기 1대당 1명만 가능합니다.`,
+      })
+    }
+  }
 
   // 이미 인식된 학생인지 확인
   const { data: existing } = await db
@@ -102,6 +122,7 @@ export async function POST(req: Request) {
     session_id: sessionId,
     user_id: userId,
     user_name: userName,
+    device_id: deviceId,
     last_seen_at: now,
     entry_lat: hasLoc ? lat : null,
     entry_lng: hasLoc ? lng : null,
@@ -113,6 +134,7 @@ export async function POST(req: Request) {
     session_id: sessionId,
     user_id: userId,
     user_name: userName,
+    device_id: deviceId,
     last_seen_at: now,
     entry_distance_m: distance,
     status: 'present',
@@ -128,8 +150,11 @@ export async function POST(req: Request) {
   }
 
   let err = await writeError(fullRow)
-  if (err && /column|entry_lat|entry_lng/i.test(err)) {
+  if (err && /column|entry_lat|entry_lng|device_id/i.test(err)) {
     err = await writeError(basicRow)
+  }
+  if (err && /device_id/i.test(err)) {
+    err = await writeError({ ...basicRow, device_id: undefined })
   }
   if (err) return Response.json({ ok: false, error: err }, { status: 500 })
 

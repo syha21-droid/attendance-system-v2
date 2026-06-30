@@ -2,13 +2,13 @@
 
 import { useRouter } from 'next/navigation'
 import { LogOut, ArrowLeft } from 'lucide-react'
-import { clearSessionCookie } from '@/lib/session'
+import { doLogout } from '@/lib/logout'
 
 export default function LatePage() {
   const router = useRouter()
 
   const handleLogout = () => {
-    clearSessionCookie()
+    
     localStorage.removeItem('user')
     router.push('/login')
   }

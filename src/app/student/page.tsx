@@ -8,7 +8,7 @@ import { useStore } from '@/store/useStore'
 import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
 import { loadCourses, loadEnrolledCourses, enrollCourse } from '@/lib/dataStore'
-import { clearSessionCookie } from '@/lib/session'
+import { doLogout } from '@/lib/logout'
 
 export default function StudentPage() {
   const router = useRouter()
@@ -81,7 +81,7 @@ export default function StudentPage() {
     setShowForm(false)
   }
 
-  const handleLogout = () => { clearSessionCookie(); localStorage.removeItem('user'); setUser(null); router.push('/login') }
+  const handleLogout = () => { doLogout(user?.id).then(() => { setUser(null); router.push('/login') }) }
 
   if (!user) {
     return (

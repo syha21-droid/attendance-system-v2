@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, LogOut, Monitor, Smartphone, Shield, User } from 'lucide-react'
-import { clearSessionCookie } from '@/lib/session'
+import { doLogout } from '@/lib/logout'
 
 interface LoginRecord {
   userId: string
@@ -70,7 +70,7 @@ export default function LoginHistoryPage() {
             </div>
             <span style={{ fontFamily: 'Georgia, serif', color: 'rgba(255,255,255,0.60)', fontSize: '10px', fontWeight: '600', letterSpacing: '0.14em', textTransform: 'uppercase' }}>로그인 기록</span>
           </div>
-          <button onClick={() => { clearSessionCookie(); localStorage.removeItem('user'); router.push('/login') }} className="rd-nav-btn">
+          <button onClick={() => { localStorage.removeItem('user'); router.push('/login') }} className="rd-nav-btn">
             <LogOut style={{ width: '15px', height: '15px' }} />
           </button>
         </div>

@@ -31,7 +31,16 @@ export default function Login() {
     setLoading(true)
 
     const result = await apiLogin(email, password)
+
+    // 서버가 이미 로그인 중으로 차단한 경우
+    if (result.blocked) {
+      toast.error(result.error || '이미 다른 곳에서 로그인 중입니다.', { duration: 8000 })
+      setLoading(false)
+      return
+    }
+
     let user = result.user
+    const sessionToken: string | null = result.token || null
 
     if (!user) {
       const users = JSON.parse(localStorage.getItem('users') || '[]')
@@ -40,20 +49,11 @@ export default function Login() {
     }
 
     if (user) {
-      // 계정 1개 = 기기 1대 (서버 강제, 관리자 예외)
-      const lock = await checkAndBindDevice(user)
-      if (!lock.ok) {
-        toast.error(lock.error || '이 계정은 다른 기기에서 사용 중입니다.', { duration: 6000 })
-        setLoading(false)
-        return
-      }
-
+      if (sessionToken) localStorage.setItem('sessionToken', sessionToken)
       localStorage.setItem('user', JSON.stringify(user))
       setSessionCookie(user)
       setUser(user as any)
-      // 같은 계정의 다른 탭 즉시 로그아웃
       broadcastLogin(user.id)
-      // 로그인 기록 저장 (서버 + 로컬)
       recordLogin(user)
       toast.success('로그인 성공')
       setTimeout(() => router.push(user.isAdmin ? '/admin' : '/student'), 400)

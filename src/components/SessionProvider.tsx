@@ -4,8 +4,9 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useStore } from '@/store/useStore'
-import { getSessionCookie, setSessionCookie, clearSessionCookie } from '@/lib/session'
+import { getSessionCookie, setSessionCookie } from '@/lib/session'
 import { listenForKick } from '@/lib/singleTab'
+import { doLogout } from '@/lib/logout'
 
 export default function SessionProvider({ children }: { children: React.ReactNode }) {
   const setUser = useStore((state) => state.setUser)
@@ -38,8 +39,7 @@ export default function SessionProvider({ children }: { children: React.ReactNod
         const me = JSON.parse(raw)
         if (me.id !== incomingId) return
       } catch { return }
-      localStorage.removeItem('user')
-      clearSessionCookie()
+      doLogout()
       setUser(null as any)
       toast.error('다른 탭에서 로그인되어 이 탭은 로그아웃됩니다.', { duration: 4000 })
       setTimeout(() => router.push('/login'), 1500)

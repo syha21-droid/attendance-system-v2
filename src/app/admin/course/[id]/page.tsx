@@ -9,7 +9,7 @@ import * as XLSX from 'xlsx'
 import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
 import { loadCourses, createCourse, loadStudents as loadServerStudents, loadCourseEnrollments } from '@/lib/dataStore'
-import { clearSessionCookie } from '@/lib/session'
+import { doLogout } from '@/lib/logout'
 
 interface CourseMaterial {
   id: string
@@ -506,7 +506,7 @@ export default function CourseDetailPage() {
   }
 
   const handleLogout = () => {
-    clearSessionCookie()
+    
     localStorage.removeItem('user')
     setUser(null)
     router.push('/login')

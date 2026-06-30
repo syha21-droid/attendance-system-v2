@@ -141,7 +141,7 @@ export async function apiSignupExternal(payload: {
 }
 
 /** 로그인 (서버). user 없으면 호출측이 localStorage 폴백. */
-export async function apiLogin(email: string, password: string): Promise<{ user?: any; nodb?: boolean }> {
+export async function apiLogin(email: string, password: string): Promise<{ user?: any; nodb?: boolean; blocked?: boolean; error?: string; token?: string }> {
   try {
     const res = await fetch('/api/auth/login', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ email, password }) })
     return await res.json()

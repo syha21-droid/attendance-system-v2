@@ -5,7 +5,7 @@ import { LogOut, ArrowLeft, AlertTriangle, Download } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { Course } from '@/types'
-import { clearSessionCookie } from '@/lib/session'
+import { doLogout } from '@/lib/logout'
 
 interface AttendanceLog {
   userId: string
@@ -106,7 +106,7 @@ export default function AttendancePage() {
   }
 
   const handleLogout = () => {
-    clearSessionCookie()
+    
     localStorage.removeItem('user')
     router.push('/login')
   }

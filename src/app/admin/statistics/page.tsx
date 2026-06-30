@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import { LogOut, ArrowLeft, BarChart3, TrendingUp } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Course } from '@/types'
-import { clearSessionCookie } from '@/lib/session'
+import { doLogout } from '@/lib/logout'
 
 export default function StatisticsPage() {
   const router = useRouter()
@@ -122,7 +122,7 @@ export default function StatisticsPage() {
   }, [selectedCourse])
 
   const handleLogout = () => {
-    clearSessionCookie()
+    
     localStorage.removeItem('user')
     setUser(null)
     router.push('/login')

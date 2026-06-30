@@ -5,7 +5,7 @@ import { LogOut, ArrowLeft, Settings, X, Plus, Trash2, Search, UserX } from 'luc
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Course } from '@/types'
-import { clearSessionCookie } from '@/lib/session'
+import { doLogout } from '@/lib/logout'
 
 interface StudentWithAttendance {
   id: string
@@ -182,7 +182,7 @@ export default function StudentsPage() {
             </div>
             <span style={{ fontFamily: 'Georgia, serif', color: 'rgba(255,255,255,0.60)', fontSize: '10px', fontWeight: '600', letterSpacing: '0.14em', textTransform: 'uppercase' }}>학생 관리</span>
           </div>
-          <button onClick={() => { clearSessionCookie(); localStorage.removeItem('user'); router.push('/login') }} className="rd-nav-btn">
+          <button onClick={() => { localStorage.removeItem('user'); router.push('/login') }} className="rd-nav-btn">
             <LogOut style={{ width: '15px', height: '15px' }} />
             <span>로그아웃</span>
           </button>
