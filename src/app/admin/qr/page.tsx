@@ -23,6 +23,13 @@ interface Flash {
   msg: string
 }
 
+// 학생 QR과 동일한 페이로드 포맷 (외부 참가자 수동 추가용 토큰 생성)
+function encodePayload(obj: any): string {
+  const json = JSON.stringify(obj)
+  const b64 = btoa(unescape(encodeURIComponent(json)))
+  return 'RDQR1:' + b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
 export default function AdminQrScannerPage() {
   const router = useRouter()
   const [courses, setCourses] = useState<Course[]>([])
@@ -39,6 +46,8 @@ export default function AdminQrScannerPage() {
   const [scanning, setScanning] = useState(false)
   const [scans, setScans] = useState<any[]>([])
   const [flash, setFlash] = useState<Flash | null>(null)
+  const [extName, setExtName] = useState('')
+  const [addingExt, setAddingExt] = useState(false)
 
   const scannerRef = useRef<any>(null)
   const startingRef = useRef(false)
@@ -200,6 +209,38 @@ export default function AdminQrScannerPage() {
     },
     [session, showFlash]
   )
+
+  // 토요특강 · 외부 참가자 직접 추가 (계정/QR 없이 이름만으로 출석)
+  const addExternal = async () => {
+    if (!session) return
+    const nm = extName.trim()
+    if (!nm) return toast.error('이름을 입력하세요')
+    setAddingExt(true)
+    try {
+      const token = encodePayload({ v: 1, uid: 'ext-' + nm, name: nm, ts: Date.now() })
+      const res = await fetch('/api/qr/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: session.id, token }),
+      })
+      const d = await res.json()
+      if (d.ok) {
+        toast.success(d.alreadyScanned ? `${nm}님 이미 추가됨` : `${nm}님 출석 추가 완료`)
+        setExtName('')
+        try {
+          const r = await fetch(`/api/qr/scans?session=${session.id}`, { cache: 'no-store' })
+          const j = await r.json()
+          if (r.ok) setScans(j.scans || [])
+        } catch {}
+      } else {
+        toast.error(d.error || '추가 실패')
+      }
+    } catch {
+      toast.error('네트워크 오류')
+    } finally {
+      setAddingExt(false)
+    }
+  }
 
   // 카메라 스캐너 시작/중지
   const startScanner = useCallback(async () => {
@@ -414,8 +455,11 @@ export default function AdminQrScannerPage() {
                     return (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
                         <div>
-                          <p style={{ fontSize: '14px', fontWeight: '700', color: 'white' }}>
-                            {hasLoc ? (inRange ? '🟢' : '🟠') : '⚪'} {s.user_name || s.user_id}
+                          <p style={{ fontSize: '14px', fontWeight: '700', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{hasLoc ? (inRange ? '🟢' : '🟠') : '⚪'} {s.user_name || s.user_id}</span>
+                            {String(s.user_id).startsWith('ext-') && (
+                              <span style={{ fontSize: '10px', fontWeight: '700', color: '#C9941A', background: 'rgba(201,148,26,0.10)', border: '1px solid rgba(201,148,26,0.30)', padding: '1px 6px', borderRadius: '4px' }}>외부</span>
+                            )}
                           </p>
                           <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '2px' }}>
                             인식 {fmt(s.entry_at)}
@@ -439,6 +483,34 @@ export default function AdminQrScannerPage() {
                     )
                   })
                 )}
+              </div>
+
+              {/* 토요특강 · 외부 참가자 직접 추가 (실시간 인식 목록 아래) */}
+              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <p style={{ fontSize: '13px', fontWeight: '700', color: '#C9941A', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  🎟️ 토요특강 · 외부 참가자 추가
+                </p>
+                <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '10px', lineHeight: 1.6 }}>
+                  계정·QR 없이 오신 외부 참가자는 이름만 입력하면 바로 출석에 추가됩니다.
+                </p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    value={extName}
+                    onChange={(e) => setExtName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addExternal()}
+                    placeholder="외부 참가자 이름"
+                    className="rd-input"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    onClick={addExternal}
+                    disabled={addingExt}
+                    className="btn-gold"
+                    style={{ padding: '0 18px', fontSize: '13px', whiteSpace: 'nowrap', opacity: addingExt ? 0.5 : 1 }}
+                  >
+                    {addingExt ? '추가중' : '출석 추가'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
