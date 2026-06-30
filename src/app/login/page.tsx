@@ -10,6 +10,7 @@ import { apiLogin } from '@/lib/dataStore'
 import { setSessionCookie } from '@/lib/session'
 import { checkAndBindDevice } from '@/lib/deviceLock'
 import { recordLogin } from '@/lib/loginHistory'
+import { broadcastLogin } from '@/lib/singleTab'
 
 const features = [
   { icon: MapPin,      title: 'GPS 위치 인증',      desc: '현장에서만 출석 가능한 위치 기반 시스템' },
@@ -50,6 +51,8 @@ export default function Login() {
       localStorage.setItem('user', JSON.stringify(user))
       setSessionCookie(user)
       setUser(user as any)
+      // 같은 계정의 다른 탭 즉시 로그아웃
+      broadcastLogin(user.id)
       // 로그인 기록 저장 (서버 + 로컬)
       recordLogin(user)
       toast.success('로그인 성공')
