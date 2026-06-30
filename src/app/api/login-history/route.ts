@@ -48,3 +48,16 @@ export async function GET() {
   }))
   return Response.json({ records })
 }
+
+// 특정 사용자의 접속 기록 삭제 (관리자 정리용). userId 필수 — 전체 삭제는 막음.
+export async function DELETE(req: Request) {
+  const db = getSupabaseAdmin()
+  if (!db) return Response.json({ ok: false, nodb: true })
+
+  const userId = new URL(req.url).searchParams.get('userId')
+  if (!userId) return Response.json({ ok: false, error: 'userId 필수' }, { status: 400 })
+
+  const { error } = await db.from('login_history').delete().eq('user_id', userId)
+  if (error) return Response.json({ ok: false, error: error.message })
+  return Response.json({ ok: true })
+}
