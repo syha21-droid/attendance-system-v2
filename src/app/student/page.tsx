@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { LogOut, BookOpen, Award, ChevronRight, Plus, X } from 'lucide-react'
+import { LogOut, BookOpen, Award, ChevronRight, Plus, X, QrCode } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Course } from '@/types'
 import { useIsomorphicLayoutEffect } from '@/lib/useIsomorphicLayoutEffect'
@@ -145,6 +145,26 @@ export default function StudentPage() {
             </div>
           </div>
         </div>
+
+        {/* 내 출석 QR (B안) */}
+        <button
+          onClick={() => router.push('/qr')}
+          className="w-full flex items-center justify-between"
+          style={{
+            marginBottom: '28px', padding: '20px 24px',
+            background: 'linear-gradient(135deg, rgba(201,148,26,0.18) 0%, rgba(201,148,26,0.08) 100%)',
+            border: '1px solid rgba(201,148,26,0.30)', cursor: 'pointer', textAlign: 'left',
+          }}
+        >
+          <div>
+            <div className="flex items-center gap-2" style={{ marginBottom: '6px' }}>
+              <QrCode style={{ width: '15px', height: '15px', color: '#C9941A' }} />
+              <p style={{ fontSize: '13px', fontWeight: '700', color: 'white' }}>내 출석 QR 보기</p>
+            </div>
+            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.38)' }}>현장에서 이 QR을 관리자에게 보여주면 출석 인식</p>
+          </div>
+          <ChevronRight style={{ width: '18px', height: '18px', color: 'rgba(201,148,26,0.60)', flexShrink: 0 }} />
+        </button>
 
         {/* 수강 강의 */}
         <div className="rd-surface overflow-hidden">

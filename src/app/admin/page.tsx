@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { LogOut, Users, BookOpen, BarChart3, Download, ChevronRight, Trash2, Radio } from 'lucide-react'
+import { LogOut, Users, BookOpen, BarChart3, Download, ChevronRight, Trash2, Radio, QrCode } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import * as XLSX from 'xlsx'
 import { Course } from '@/types'
@@ -205,6 +205,27 @@ export default function AdminPage() {
               <p style={{ fontSize: '13px', fontWeight: '700', color: 'white' }}>위치 기반 출석 시작</p>
             </div>
             <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.38)' }}>현장 위치 설정 후 학생 입·퇴장 자동 기록</p>
+          </div>
+          <ChevronRight style={{ width: '18px', height: '18px', color: 'rgba(201,148,26,0.60)', flexShrink: 0 }} />
+        </button>
+
+        {/* QR 출석(B안) CTA */}
+        <button
+          onClick={() => router.push('/admin/qr')}
+          className="w-full flex items-center justify-between"
+          style={{
+            marginBottom: '20px', padding: '20px 24px',
+            background: 'linear-gradient(135deg, rgba(201,148,26,0.18) 0%, rgba(201,148,26,0.08) 100%)',
+            border: '1px solid rgba(201,148,26,0.30)', cursor: 'pointer', transition: 'border-color 0.15s',
+            textAlign: 'left',
+          }}
+        >
+          <div>
+            <div className="flex items-center gap-2" style={{ marginBottom: '6px' }}>
+              <QrCode style={{ width: '15px', height: '15px', color: '#C9941A' }} />
+              <p style={{ fontSize: '13px', fontWeight: '700', color: 'white' }}>QR 출석 인식기 (B안)</p>
+            </div>
+            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.38)' }}>학생 QR을 카메라로 스캔 · 위치 확인 후 출석 인식</p>
           </div>
           <ChevronRight style={{ width: '18px', height: '18px', color: 'rgba(201,148,26,0.60)', flexShrink: 0 }} />
         </button>
