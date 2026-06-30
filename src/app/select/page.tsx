@@ -30,6 +30,7 @@ const PLANS: Plan[] = [
     ],
     adminHref: '/admin',
     studentHref: '/student',
+    recommended: true,
   },
   {
     key: 'B',
@@ -45,7 +46,6 @@ const PLANS: Plan[] = [
     ],
     adminHref: '/admin/qr',
     studentHref: '/qr',
-    recommended: true,
   },
 ]
 
