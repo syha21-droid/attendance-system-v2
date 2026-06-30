@@ -21,6 +21,7 @@ function encodePayload(obj: any): string {
 export default function StudentQrPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
+  const [name, setName] = useState('')
   const [loc, setLoc] = useState<{ lat: number; lng: number } | null>(null)
   const [locState, setLocState] = useState<LocState>('locating')
   const [qr, setQr] = useState('')
@@ -30,16 +31,24 @@ export default function StudentQrPage() {
 
   useEffect(() => {
     const saved = localStorage.getItem('user')
-    if (!saved) {
-      router.push('/login')
-      return
+    if (saved) {
+      // 로그인된 사용자(학생/관리자 미리보기)는 본인 신원 사용
+      const u = JSON.parse(saved)
+      setUser(u)
+      setName(u.name || '')
+    } else {
+      // 로그인/쿠키 없이도 동작 (시연용) — 게스트 신원 자동 생성, 이름은 직접 입력
+      let gid = localStorage.getItem('qrGuestId')
+      if (!gid) {
+        gid = 'g-' + Math.random().toString(36).slice(2, 9)
+        localStorage.setItem('qrGuestId', gid)
+      }
+      setUser({ id: gid, name: '게스트', isAdmin: false, guest: true })
+      setName('게스트')
     }
-    const u = JSON.parse(saved)
-    // 검토용: 관리자도 학생 QR 화면을 미리 볼 수 있게 튕기지 않음
-    setUser(u)
     // 서버 시간과 동기화 (기기 시계 조작 무효화)
     syncTrustedTime(true)
-  }, [router])
+  }, [])
 
   // 위치 지속 추적
   useEffect(() => {
@@ -70,21 +79,21 @@ export default function StudentQrPage() {
       encodePayload({
         v: 1,
         uid: user.id,
-        name: user.name,
+        name: (name || user.name || '게스트').trim(),
         lat: l?.lat,
         lng: l?.lng,
         ts: getTrustedNow().getTime(),
       })
     )
     setTick((t) => t + 1)
-  }, [user])
+  }, [user, name])
 
   useEffect(() => {
     rebuild()
     const t = setInterval(rebuild, REFRESH_MS)
     return () => clearInterval(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loc])
+  }, [user, loc, name])
 
   return (
     <div
@@ -114,8 +123,23 @@ export default function StudentQrPage() {
         </div>
 
         <p style={{ fontSize: '11px', fontWeight: '700', color: '#C9941A', letterSpacing: '0.22em', textTransform: 'uppercase', marginBottom: '6px' }}>출석 QR</p>
-        <p style={{ fontSize: '18px', fontWeight: '700', color: 'white', marginBottom: '4px' }}>{user?.name ? `${user.name}님` : ''}</p>
-        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.38)', marginBottom: '22px' }}>관리자에게 이 QR을 보여주세요</p>
+        {user?.guest ? (
+          <div style={{ marginBottom: '18px' }}>
+            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.40)', marginBottom: '8px' }}>이름을 입력하면 QR이 만들어집니다</p>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="이름"
+              className="rd-input"
+              style={{ textAlign: 'center', maxWidth: '220px', margin: '0 auto' }}
+            />
+          </div>
+        ) : (
+          <>
+            <p style={{ fontSize: '18px', fontWeight: '700', color: 'white', marginBottom: '4px' }}>{user?.name ? `${user.name}님` : ''}</p>
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.38)', marginBottom: '22px' }}>관리자에게 이 QR을 보여주세요</p>
+          </>
+        )}
 
         {/* QR */}
         <div style={{ background: 'white', padding: '18px', display: 'inline-block', borderRadius: '12px', marginBottom: '18px' }}>
@@ -154,10 +178,10 @@ export default function StudentQrPage() {
         </p>
 
         <button
-          onClick={() => router.push(user?.isAdmin ? '/select' : '/student')}
+          onClick={() => router.push(user?.isAdmin || user?.guest ? '/select' : '/student')}
           style={{ marginTop: '18px', padding: '9px 24px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.55)', fontSize: '13px', cursor: 'pointer' }}
         >
-          {user?.isAdmin ? '← 선택 화면으로' : '내 강의로'}
+          {user?.isAdmin || user?.guest ? '← 선택 화면으로' : '내 강의로'}
         </button>
       </div>
     </div>
