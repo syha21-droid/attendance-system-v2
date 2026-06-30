@@ -105,10 +105,10 @@ export default function StudentQrOnlyPage() {
         </p>
 
         <button
-          onClick={() => router.push('/student')}
+          onClick={() => router.push(user?.isAdmin ? '/select' : '/student')}
           style={{ marginTop: '18px', padding: '9px 24px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.55)', fontSize: '13px', cursor: 'pointer' }}
         >
-          내 강의로
+          {user?.isAdmin ? '← 선택 화면으로' : '내 강의로'}
         </button>
       </div>
     </div>
