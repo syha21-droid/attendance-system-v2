@@ -30,12 +30,14 @@ export default function SessionProvider({ children }: { children: React.ReactNod
       }
     }
 
-    // 같은 계정이 다른 탭에서 로그인하면 이 탭 강제 로그아웃
-    const lsRaw = localStorage.getItem('user')
-    const currentUser = lsRaw ? (() => { try { return JSON.parse(lsRaw) } catch { return null } })() : null
-    if (!currentUser) return
-
-    const unsubscribe = listenForKick(currentUser.id, () => {
+    // 항상 리스너 설치 — 수신 시점에 localStorage 확인해서 같은 계정이면 킥
+    const unsubscribe = listenForKick((incomingId) => {
+      try {
+        const raw = localStorage.getItem('user')
+        if (!raw) return
+        const me = JSON.parse(raw)
+        if (me.id !== incomingId) return
+      } catch { return }
       localStorage.removeItem('user')
       clearSessionCookie()
       setUser(null as any)
