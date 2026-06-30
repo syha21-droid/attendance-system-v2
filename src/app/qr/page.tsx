@@ -35,10 +35,7 @@ export default function StudentQrPage() {
       return
     }
     const u = JSON.parse(saved)
-    if (u.isAdmin) {
-      router.push('/admin')
-      return
-    }
+    // 검토용: 관리자도 학생 QR 화면을 미리 볼 수 있게 튕기지 않음
     setUser(u)
     // 서버 시간과 동기화 (기기 시계 조작 무효화)
     syncTrustedTime(true)

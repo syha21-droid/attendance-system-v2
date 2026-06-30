@@ -28,10 +28,7 @@ export default function StudentQrOnlyPage() {
       return
     }
     const u = JSON.parse(saved)
-    if (u.isAdmin) {
-      router.push('/admin')
-      return
-    }
+    // 검토용: 관리자도 학생 QR 화면을 미리 볼 수 있게 튕기지 않음
     setUser(u)
     syncTrustedTime(true)
   }, [router])
