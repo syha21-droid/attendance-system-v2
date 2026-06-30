@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Check, QrCode, MapPin, LayoutGrid, ArrowRight, UserCog, GraduationCap } from 'lucide-react'
+import { Check, MapPin, LayoutGrid, ArrowRight, UserCog, GraduationCap } from 'lucide-react'
 
 interface Plan {
   key: string
@@ -47,21 +47,6 @@ const PLANS: Plan[] = [
     studentHref: '/qr',
     recommended: true,
   },
-  {
-    key: 'C',
-    badge: 'C안',
-    title: 'QR만 출석 (간편)',
-    summary: '위치 확인 없이 QR 스캔만으로 출석 인식 — 가장 단순하고 빠름',
-    icon: QrCode,
-    features: [
-      '학생 QR 표시',
-      '관리자 카메라로 QR 스캔',
-      '위치 확인 없음 (가장 간단)',
-      '실시간 인식 목록',
-    ],
-    adminHref: '/admin/qr-only',
-    studentHref: '/qr-only',
-  },
 ]
 
 export default function SelectPlanPage() {
@@ -88,16 +73,16 @@ export default function SelectPlanPage() {
           </div>
           <p style={{ fontSize: '10px', fontWeight: '700', color: '#C9941A', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '14px' }}>For Review</p>
           <h1 style={{ fontSize: '2rem', fontWeight: '700', color: 'white', fontFamily: 'Georgia, serif', marginBottom: '12px' }}>
-            출석 시스템 — 3가지 안 중 선택
+            출석 시스템 — 2가지 안 중 선택
           </h1>
           <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.40)', lineHeight: 1.7 }}>
-            팀장님, 아래 세 가지 방식을 직접 체험해보시고 어떤 방향으로 진행할지 결정해주세요.<br />
+            팀장님, 아래 두 가지 방식을 직접 체험해보시고 어떤 방향으로 진행할지 결정해주세요.<br />
             각 안마다 <span style={{ color: 'rgba(255,255,255,0.7)' }}>관리자 화면</span>과 <span style={{ color: 'rgba(255,255,255,0.7)' }}>학생 화면</span> 링크가 따로 있습니다.
           </p>
         </div>
 
-        {/* 3안 카드 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* 안 카드 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5" style={{ maxWidth: '760px', margin: '0 auto' }}>
           {PLANS.map((p) => {
             const Icon = p.icon
             return (
@@ -174,22 +159,20 @@ export default function SelectPlanPage() {
                 <th style={{ padding: '8px 12px', fontWeight: '600' }}>구분</th>
                 <th style={{ padding: '8px 12px', fontWeight: '600' }}>A안 · 풀 시스템</th>
                 <th style={{ padding: '8px 12px', fontWeight: '600' }}>B안 · 위치 QR</th>
-                <th style={{ padding: '8px 12px', fontWeight: '600' }}>C안 · QR만</th>
               </tr>
             </thead>
             <tbody style={{ color: 'rgba(255,255,255,0.70)' }}>
               {[
-                ['출석 방식', 'GPS 자동 + 제출', '관리자 QR 스캔', '관리자 QR 스캔'],
-                ['위치 확인', '있음', '있음 (현장 반경)', '없음'],
-                ['강의안/미션 제출', '있음', '없음', '없음'],
-                ['회원/성적/통계', '있음', '없음', '없음'],
-                ['복잡도', '높음', '중간', '낮음 (가장 간단)'],
+                ['출석 방식', 'GPS 자동 + 제출', '관리자 QR 스캔'],
+                ['위치 확인', '있음', '있음 (현장 반경)'],
+                ['강의안/미션 제출', '있음', '없음'],
+                ['회원/성적/통계', '있음', '없음'],
+                ['복잡도', '높음', '중간'],
               ].map((row, i) => (
                 <tr key={i} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                   <td style={{ padding: '10px 12px', color: 'rgba(255,255,255,0.45)', fontWeight: '600' }}>{row[0]}</td>
                   <td style={{ padding: '10px 12px' }}>{row[1]}</td>
                   <td style={{ padding: '10px 12px' }}>{row[2]}</td>
-                  <td style={{ padding: '10px 12px' }}>{row[3]}</td>
                 </tr>
               ))}
             </tbody>
