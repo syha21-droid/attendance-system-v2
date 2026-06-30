@@ -35,6 +35,8 @@ export default function SessionProvider({ children }: { children: React.ReactNod
 
     // 항상 리스너 1개만 — router는 ref로 참조해 effect 재실행 방지
     const unsubscribe = listenForKick((incomingId) => {
+      // 로그인 페이지에서는 킥 무시 (이미 로그인 화면이므로)
+      if (window.location.pathname === '/login') return
       try {
         const raw = localStorage.getItem('user')
         if (!raw) return
