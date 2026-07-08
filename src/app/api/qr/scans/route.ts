@@ -11,9 +11,9 @@ export async function GET(req: Request) {
   if (!sessionId) return Response.json({ error: 'session 필수' }, { status: 400 })
 
   const WITH_META =
-    'user_id, user_name, status, entry_at, last_seen_at, entry_distance_m, entry_lat, entry_lng, meta'
+    'user_id, user_name, status, entry_at, exit_at, last_seen_at, entry_distance_m, entry_lat, entry_lng, meta'
   const FULL =
-    'user_id, user_name, status, entry_at, last_seen_at, entry_distance_m, entry_lat, entry_lng'
+    'user_id, user_name, status, entry_at, exit_at, last_seen_at, entry_distance_m, entry_lat, entry_lng'
   const BASIC = 'user_id, user_name, status, entry_at, last_seen_at, entry_distance_m'
 
   const query = (cols: string) =>

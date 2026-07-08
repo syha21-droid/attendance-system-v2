@@ -45,6 +45,8 @@ export default function AdminScanPage() {
 
   // 세션 설정
   const [name, setName] = useState('QR 출석')
+  const [period, setPeriod] = useState('1교시') // 교시(시간표)
+  const [scanMode, setScanMode] = useState<'entry' | 'exit'>('entry') // 입장/퇴장
   const [venue, setVenue] = useState<{ lat: number; lng: number } | null>(null)
   const [venueLabel, setVenueLabel] = useState('')
   const [address, setAddress] = useState('')
@@ -129,7 +131,7 @@ export default function AdminScanPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           courseId: 'scan-only',
-          name,
+          name: period ? `${period} · ${name}` : name,
           venueLat: venue.lat,
           venueLng: venue.lng,
           radiusM: radius,
@@ -210,7 +212,7 @@ export default function AdminScanPage() {
         const res = await fetch('/api/qr/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: session.id, token }),
+          body: JSON.stringify({ sessionId: session.id, token, mode: scanMode }),
         })
         const d = await res.json()
         if (d.ok) {
@@ -220,10 +222,11 @@ export default function AdminScanPage() {
                 ? `현장 ✅ (약 ${d.distance}m)`
                 : `현장 밖 ⚠️ (약 ${d.distance}m)`
               : '위치 없음'
+          const modeTxt = scanMode === 'exit' ? '퇴장' : '입장'
           showFlash({
             ok: true,
             name: d.userName,
-            msg: d.alreadyScanned ? `이미 인식됨 · ${distStr}` : `인식 완료 · ${distStr}`,
+            msg: `${modeTxt} ${d.alreadyScanned && scanMode === 'entry' ? '이미 인식됨' : '완료'} · ${distStr}`,
           })
           refreshScans(session.id)
         } else {
@@ -237,7 +240,7 @@ export default function AdminScanPage() {
         }, 800)
       }
     },
-    [session, showFlash, refreshScans]
+    [session, showFlash, refreshScans, scanMode]
   )
 
   // 외부 참가자(토요특강) — 사업단/성함/지점으로 추가
@@ -368,6 +371,38 @@ export default function AdminScanPage() {
               <input value={name} onChange={(e) => setName(e.target.value)} className="rd-input" placeholder="예: 7월 12일 토요특강" />
             </div>
 
+            {/* 교시(시간표) */}
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: 'rgba(255,255,255,0.70)', marginBottom: '8px' }}>교시 (시간표)</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                {['1교시', '2교시', '3교시'].map((p) => {
+                  const on = period === p
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPeriod(p)}
+                      style={{
+                        padding: '11px', fontSize: '14px', fontWeight: '700', cursor: 'pointer', borderRadius: '8px',
+                        background: on ? 'rgba(201,148,26,0.15)' : 'rgba(255,255,255,0.04)',
+                        border: on ? '1px solid #C9941A' : '1px solid rgba(255,255,255,0.10)',
+                        color: on ? '#C9941A' : 'rgba(255,255,255,0.60)',
+                      }}
+                    >
+                      {p}
+                    </button>
+                  )
+                })}
+              </div>
+              <input
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+                className="rd-input"
+                style={{ marginTop: '8px' }}
+                placeholder="직접 입력 (예: 4교시, 오후반)"
+              />
+            </div>
+
             <div style={{ background: 'rgba(201,148,26,0.06)', border: '1px solid rgba(201,148,26,0.22)', padding: '16px' }}>
               <p style={{ fontSize: '13px', fontWeight: '700', color: '#C9941A', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <MapPin style={{ width: '14px', height: '14px' }} /> 현장 위치
@@ -409,10 +444,32 @@ export default function AdminScanPage() {
         ) : (
           /* ===== 스캔 진행 ===== */
           <>
+            {/* 입장 / 퇴장 전환 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              {([['entry', '📥 입장 인식'], ['exit', '📤 퇴장 인식']] as const).map(([m, label]) => {
+                const on = scanMode === m
+                return (
+                  <button
+                    key={m}
+                    onClick={() => setScanMode(m)}
+                    style={{
+                      padding: '13px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', borderRadius: '10px',
+                      background: on ? (m === 'exit' ? 'rgba(96,165,250,0.18)' : 'rgba(74,222,128,0.15)') : 'rgba(255,255,255,0.04)',
+                      border: on ? (m === 'exit' ? '1.5px solid #60a5fa' : '1.5px solid #4ade80') : '1px solid rgba(255,255,255,0.10)',
+                      color: on ? (m === 'exit' ? '#60a5fa' : '#4ade80') : 'rgba(255,255,255,0.55)',
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+
             <div className="rd-surface p-4">
               <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Camera style={{ width: '16px', height: '16px', color: '#C9941A' }} /> {session.name}
+                  <Camera style={{ width: '16px', height: '16px', color: scanMode === 'exit' ? '#60a5fa' : '#C9941A' }} /> {session.name}
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: scanMode === 'exit' ? '#60a5fa' : '#4ade80' }}>· {scanMode === 'exit' ? '퇴장' : '입장'}</span>
                 </h3>
                 <span style={{ fontSize: '11px', fontWeight: '700', color: scanning ? '#4ade80' : 'rgba(255,255,255,0.40)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: scanning ? '#4ade80' : 'rgba(255,255,255,0.30)', display: 'inline-block' }} />
@@ -536,6 +593,7 @@ export default function AdminScanPage() {
                           <span>{dot}</span>
                           <span style={{ fontSize: '14px', fontWeight: '600', color: 'white' }}>{s.user_name}</span>
                           {ext && <span style={{ fontSize: '10px', color: '#C9941A', border: '1px solid rgba(201,148,26,0.4)', padding: '1px 5px', borderRadius: '4px' }}>외부</span>}
+                          {s.exit_at && <span style={{ fontSize: '10px', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.4)', padding: '1px 5px', borderRadius: '4px' }}>퇴장✔</span>}
                         </div>
                         <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>
                           {s.entry_distance_m != null && !ext ? `${Math.round(s.entry_distance_m)}m · ` : ''}{fmt(s.entry_at || s.last_seen_at)}

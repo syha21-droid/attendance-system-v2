@@ -39,6 +39,7 @@ function StatsInner() {
   const inRange = scans.filter((s) => dist(s) != null && dist(s)! <= radius).length
   const outRange = scans.filter((s) => dist(s) != null && dist(s)! > radius).length
   const noLoc = scans.filter((s) => dist(s) == null && !isExt(s)).length
+  const exited = scans.filter((s) => !!s.exit_at).length
 
   // 유입 경로별 집계 (외부 참가자)
   const sourceCounts: Record<string, number> = {}
@@ -63,13 +64,14 @@ function StatsInner() {
     t ? new Date(t).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'
 
   const downloadCsv = () => {
-    const header = ['번호', '구분', '표시이름', '사업단', '성함', '지점', '유입경로', '소개자', '거리(m)', '시간']
+    const header = ['번호', '교시', '구분', '표시이름', '사업단', '성함', '지점', '유입경로', '소개자', '거리(m)', '입장시간', '퇴장시간']
     const rows = scans.map((s, i) => {
       const ext = isExt(s)
       const m = s.meta || {}
       const d = dist(s)
       return [
         String(scans.length - i),
+        sessionName,
         ext ? '외부' : '학생',
         s.user_name || '',
         m.org || '',
@@ -79,6 +81,7 @@ function StatsInner() {
         m.referrer || '',
         d != null ? String(Math.round(d)) : '',
         fmt(s.entry_at || s.last_seen_at),
+        s.exit_at ? fmt(s.exit_at) : '',
       ]
     })
     const csv = [header, ...rows]
@@ -160,8 +163,8 @@ function StatsInner() {
               <Stat label="학생(QR)" value={students.length} />
               <Stat label="외부 참가자" value={external.length} />
               <Stat label="현장 안 🟢" value={inRange} color="#4ade80" />
+              <Stat label="퇴장 완료 📤" value={exited} color="#60a5fa" />
               <Stat label="현장 밖 🟠" value={outRange} color="#fbbf24" />
-              <Stat label="위치 없음 ⚪" value={noLoc} />
             </div>
 
             {/* 유입 경로별 */}
@@ -185,7 +188,8 @@ function StatsInner() {
                     <th style={{ padding: '6px 8px' }}>이름</th>
                     <th style={{ padding: '6px 8px' }}>유입경로</th>
                     <th style={{ padding: '6px 8px' }}>거리</th>
-                    <th style={{ padding: '6px 8px' }}>시간</th>
+                    <th style={{ padding: '6px 8px' }}>입장</th>
+                    <th style={{ padding: '6px 8px' }}>퇴장</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -200,6 +204,7 @@ function StatsInner() {
                         <td style={{ padding: '7px 8px' }}>{ext ? (s.meta?.source || '미기재') + (s.meta?.referrer ? `(${s.meta.referrer})` : '') : '-'}</td>
                         <td style={{ padding: '7px 8px' }}>{d != null ? `${Math.round(d)}m` : '-'}</td>
                         <td style={{ padding: '7px 8px', color: 'rgba(255,255,255,0.45)' }}>{fmt(s.entry_at || s.last_seen_at)}</td>
+                        <td style={{ padding: '7px 8px', color: s.exit_at ? '#60a5fa' : 'rgba(255,255,255,0.25)' }}>{s.exit_at ? fmt(s.exit_at) : '-'}</td>
                       </tr>
                     )
                   })}

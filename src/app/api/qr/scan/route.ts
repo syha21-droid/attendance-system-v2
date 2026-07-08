@@ -119,40 +119,51 @@ export async function POST(req: Request) {
     .maybeSingle()
 
   const metaObj = meta && typeof meta === 'object' ? meta : null
-  const fullRow: any = {
+  const isExit = String(body.mode) === 'exit'
+
+  // 공통 필드
+  const common: any = {
     session_id: sessionId,
     user_id: userId,
     user_name: userName,
     device_id: deviceId,
     last_seen_at: now,
-    entry_lat: hasLoc ? lat : null,
-    entry_lng: hasLoc ? lng : null,
-    entry_distance_m: distance,
-    meta: metaObj,
-    status: 'present',
   }
-  // 좌표 컬럼이 없는 구버전 DB 폴백용
-  const basicRow: any = {
-    session_id: sessionId,
-    user_id: userId,
-    user_name: userName,
-    device_id: deviceId,
-    last_seen_at: now,
-    entry_distance_m: distance,
-    status: 'present',
-  }
+  // 입장/퇴장에 따라 다른 컬럼 기록
+  const fullRow: any = isExit
+    ? {
+        ...common,
+        exit_at: now,
+        exit_lat: hasLoc ? lat : null,
+        exit_lng: hasLoc ? lng : null,
+        meta: metaObj,
+        status: 'completed', // 퇴장까지 완료 = 출석 인정
+      }
+    : {
+        ...common,
+        entry_lat: hasLoc ? lat : null,
+        entry_lng: hasLoc ? lng : null,
+        entry_distance_m: distance,
+        meta: metaObj,
+        status: 'present',
+      }
+  // 좌표/메타 컬럼이 없는 구버전 DB 폴백용
+  const basicRow: any = isExit
+    ? { ...common, exit_at: now, status: 'completed' }
+    : { ...common, entry_distance_m: distance, status: 'present' }
 
   const writeError = async (row: any): Promise<string | null> => {
     if (existing) {
       const { error } = await db.from('attendance_records').update(row).eq('id', existing.id)
       return error?.message || null
     }
+    // 신규 기록: 퇴장만 먼저 찍힌 경우도 entry_at을 함께 넣어 명단에 표시
     const { error } = await db.from('attendance_records').insert({ ...row, entry_at: now })
     return error?.message || null
   }
 
   let err = await writeError(fullRow)
-  if (err && /column|entry_lat|entry_lng|device_id|meta/i.test(err)) {
+  if (err && /column|entry_lat|entry_lng|exit_lat|exit_lng|exit_at|device_id|meta/i.test(err)) {
     err = await writeError(basicRow)
   }
   if (err && /device_id/i.test(err)) {
@@ -162,6 +173,7 @@ export async function POST(req: Request) {
 
   return Response.json({
     ok: true,
+    mode: isExit ? 'exit' : 'entry',
     alreadyScanned: !!existing,
     userId,
     userName,
