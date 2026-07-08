@@ -56,7 +56,9 @@ export default function AdminScanPage() {
   const [scanning, setScanning] = useState(false)
   const [scans, setScans] = useState<any[]>([])
   const [flash, setFlash] = useState<Flash | null>(null)
+  const [extOrg, setExtOrg] = useState('')
   const [extName, setExtName] = useState('')
+  const [extBranch, setExtBranch] = useState('')
   const [addingExt, setAddingExt] = useState(false)
   const [ready, setReady] = useState(false)
 
@@ -236,14 +238,18 @@ export default function AdminScanPage() {
     [session, showFlash, refreshScans]
   )
 
-  // 외부 참가자(토요특강) — 이름만으로 추가
+  // 외부 참가자(토요특강) — 사업단/성함/지점으로 추가
   const addExternal = async () => {
     if (!session) return
+    const org = extOrg.trim()
     const nm = extName.trim()
-    if (!nm) return toast.error('이름을 입력하세요')
+    const branch = extBranch.trim()
+    if (!nm) return toast.error('성함을 입력하세요')
+    // 표시 이름: "사업단 / 성함 / 지점" (빈 칸은 자동 생략)
+    const label = [org, nm, branch].filter(Boolean).join(' / ')
     setAddingExt(true)
     try {
-      const token = encodePayload({ v: 1, uid: 'ext-' + nm, name: nm, ts: Date.now() })
+      const token = encodePayload({ v: 1, uid: 'ext-' + label, name: label, ts: Date.now() })
       const res = await fetch('/api/qr/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -252,7 +258,9 @@ export default function AdminScanPage() {
       const d = await res.json()
       if (d.ok) {
         toast.success(d.alreadyScanned ? `${nm}님 이미 추가됨` : `${nm}님 추가 완료`)
+        setExtOrg('')
         setExtName('')
+        setExtBranch('')
         refreshScans(session.id)
       } else {
         toast.error(d.error || '추가 실패')
@@ -419,22 +427,36 @@ export default function AdminScanPage() {
               </p>
             </div>
 
-            {/* 토요특강 외부 참가자 (이름만) */}
+            {/* 토요특강 외부 참가자 (사업단/성함/지점) */}
             <div className="rd-surface p-4">
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: 'rgba(255,255,255,0.70)', marginBottom: '8px' }}>외부 참가자 (QR 없이 이름만)</label>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: 'rgba(255,255,255,0.70)', marginBottom: '10px' }}>외부 참가자 직접 추가 (QR 없이)</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <input
+                  value={extOrg}
+                  onChange={(e) => setExtOrg(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addExternal()}
+                  placeholder="사업단"
+                  className="rd-input"
+                />
                 <input
                   value={extName}
                   onChange={(e) => setExtName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addExternal()}
-                  placeholder="예: 홍길동"
+                  placeholder="성함"
                   className="rd-input"
-                  style={{ flex: 1 }}
                 />
-                <button onClick={addExternal} disabled={addingExt} className="btn-gold" style={{ padding: '0 16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-                  <Plus style={{ width: '15px', height: '15px' }} /> 추가
+                <input
+                  value={extBranch}
+                  onChange={(e) => setExtBranch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addExternal()}
+                  placeholder="지점"
+                  className="rd-input"
+                />
+                <button onClick={addExternal} disabled={addingExt} className="btn-gold" style={{ width: '100%', height: '44px', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  <Plus style={{ width: '15px', height: '15px' }} /> {addingExt ? '추가 중...' : '명단에 추가'}
                 </button>
               </div>
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.30)', marginTop: '8px' }}>성함만 필수 · 사업단/지점은 선택. 명단에는 "사업단 / 성함 / 지점"으로 표시됩니다.</p>
             </div>
 
             {/* 인식된 명단 */}
