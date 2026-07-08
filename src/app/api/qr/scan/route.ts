@@ -118,7 +118,14 @@ export async function POST(req: Request) {
     .eq('user_id', userId)
     .maybeSingle()
 
-  const metaObj = meta && typeof meta === 'object' ? meta : null
+  // 부가정보(사업단/성함/지점/유입경로/소개자): 관리자 직접입력(body.meta) 우선,
+  // 없으면 학생 QR에 담긴 payload.meta 사용
+  const metaObj =
+    meta && typeof meta === 'object'
+      ? meta
+      : payload.meta && typeof payload.meta === 'object'
+        ? payload.meta
+        : null
   const isExit = String(body.mode) === 'exit'
 
   // 공통 필드

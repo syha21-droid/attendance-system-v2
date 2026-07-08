@@ -440,6 +440,10 @@ export default function AdminScanPage() {
             <button onClick={startSession} disabled={creating} className="btn-gold" style={{ width: '100%', height: '50px', fontSize: '15px', opacity: creating ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
               <Camera style={{ width: '18px', height: '18px' }} /> {creating ? '준비 중...' : '스캔 시작'}
             </button>
+
+            <button onClick={() => router.push('/admin/scan/all')} style={{ width: '100%', padding: '11px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.65)', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              📋 관리자 전체 보기 (지난 교시·명단·통계)
+            </button>
           </div>
         ) : (
           /* ===== 스캔 진행 ===== */

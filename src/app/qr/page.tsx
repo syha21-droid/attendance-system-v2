@@ -22,6 +22,10 @@ export default function StudentQrPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [name, setName] = useState('')
+  const [org, setOrg] = useState('')
+  const [branch, setBranch] = useState('')
+  const [source, setSource] = useState('')
+  const [referrer, setReferrer] = useState('')
   const [loc, setLoc] = useState<{ lat: number; lng: number } | null>(null)
   const [locState, setLocState] = useState<LocState>('locating')
   const [qr, setQr] = useState('')
@@ -55,6 +59,17 @@ export default function StudentQrPage() {
       setUser({ id: gid, name: '게스트', isAdmin: false, guest: true })
       setName('게스트')
     }
+    // 이전에 입력한 부가정보 자동 채움
+    try {
+      const info = localStorage.getItem('qrInfo')
+      if (info) {
+        const p = JSON.parse(info)
+        if (p.org) setOrg(p.org)
+        if (p.branch) setBranch(p.branch)
+        if (p.source) setSource(p.source)
+        if (p.referrer) setReferrer(p.referrer)
+      }
+    } catch {}
     // 서버 시간과 동기화 (기기 시계 조작 무효화)
     syncTrustedTime(true)
   }, [])
@@ -84,26 +99,41 @@ export default function StudentQrPage() {
   const rebuild = useCallback(() => {
     if (!user) return
     const l = locRef.current
+    const nm = (name || user.name || '게스트').trim()
+    // 표시 이름: "사업단 / 성함 / 지점" (빈 칸 생략)
+    const label = [org.trim(), nm, branch.trim()].filter(Boolean).join(' / ')
+    const meta = {
+      org: org.trim(),
+      name: nm,
+      branch: branch.trim(),
+      source: source || '미기재',
+      referrer: source === '지인소개' ? referrer.trim() : '',
+    }
+    // 입력한 정보 저장 (다음 방문 때 자동 채움)
+    try {
+      localStorage.setItem('qrInfo', JSON.stringify({ org, branch, source, referrer }))
+    } catch {}
     setQr(
       encodePayload({
         v: 1,
         uid: user.id,
-        name: (name || user.name || '게스트').trim(),
+        name: label || nm,
         lat: l?.lat,
         lng: l?.lng,
         ts: getTrustedNow().getTime(),
         did: deviceIdRef.current,
+        meta,
       })
     )
     setTick((t) => t + 1)
-  }, [user, name])
+  }, [user, name, org, branch, source, referrer])
 
   useEffect(() => {
     rebuild()
     const t = setInterval(rebuild, REFRESH_MS)
     return () => clearInterval(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loc, name])
+  }, [user, loc, name, org, branch, source, referrer])
 
   return (
     <div
@@ -132,24 +162,41 @@ export default function StudentQrPage() {
           <span style={{ fontFamily: 'Georgia, serif', color: 'rgba(255,255,255,0.50)', fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Rich Divine Partners</span>
         </div>
 
-        <p style={{ fontSize: '11px', fontWeight: '700', color: '#C9941A', letterSpacing: '0.22em', textTransform: 'uppercase', marginBottom: '6px' }}>출석 QR</p>
-        {user?.guest ? (
-          <div style={{ marginBottom: '18px' }}>
-            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.40)', marginBottom: '8px' }}>이름을 입력하면 QR이 만들어집니다</p>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="이름"
-              className="rd-input"
-              style={{ textAlign: 'center', maxWidth: '220px', margin: '0 auto' }}
-            />
+        <p style={{ fontSize: '11px', fontWeight: '700', color: '#C9941A', letterSpacing: '0.22em', textTransform: 'uppercase', marginBottom: '10px' }}>출석 QR</p>
+
+        {/* 정보 입력 (QR에 담김) */}
+        <div style={{ marginBottom: '18px', display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
+          <input value={org} onChange={(e) => setOrg(e.target.value)} placeholder="사업단" className="rd-input" />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="성함" className="rd-input" />
+          <input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="지점" className="rd-input" />
+
+          <p style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.45)', margin: '4px 0 2px' }}>어떻게 오셨나요?</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+            {['지인소개', '직접알아봄', '광고보고', '기타'].map((s) => {
+              const on = source === s
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSource(on ? '' : s)}
+                  style={{
+                    padding: '9px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', borderRadius: '8px',
+                    background: on ? 'rgba(201,148,26,0.15)' : 'rgba(255,255,255,0.04)',
+                    border: on ? '1px solid #C9941A' : '1px solid rgba(255,255,255,0.10)',
+                    color: on ? '#C9941A' : 'rgba(255,255,255,0.60)',
+                  }}
+                >
+                  {s}
+                </button>
+              )
+            })}
           </div>
-        ) : (
-          <>
-            <p style={{ fontSize: '18px', fontWeight: '700', color: 'white', marginBottom: '4px' }}>{user?.name ? `${user.name}님` : ''}</p>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.38)', marginBottom: '22px' }}>관리자에게 이 QR을 보여주세요</p>
-          </>
-        )}
+          {source === '지인소개' && (
+            <input value={referrer} onChange={(e) => setReferrer(e.target.value)} placeholder="누구 지인? (소개자 성함)" className="rd-input" />
+          )}
+        </div>
+
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.38)', marginBottom: '18px' }}>관리자에게 이 QR을 보여주세요</p>
 
         {/* QR */}
         <div style={{ background: 'white', padding: '18px', display: 'inline-block', borderRadius: '12px', marginBottom: '18px' }}>

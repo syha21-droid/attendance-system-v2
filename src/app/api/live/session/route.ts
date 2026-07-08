@@ -49,12 +49,14 @@ export async function GET(req: Request) {
   const db = getSupabaseAdmin()
   if (!db) return Response.json({ error: SETUP_MSG }, { status: 503 })
 
-  const courseId = new URL(req.url).searchParams.get('courseId')
+  const sp = new URL(req.url).searchParams
+  const courseId = sp.get('courseId')
+  const includeEnded = sp.get('all') === '1' // 지난(종료) 세션까지 포함
   let q = db
     .from('attendance_sessions')
     .select('id, name, course_id, venue_lat, venue_lng, radius_m, starts_at, ends_at')
-    .gte('ends_at', new Date().toISOString())
     .order('created_at', { ascending: false })
+  if (!includeEnded) q = q.gte('ends_at', new Date().toISOString())
   if (courseId) q = q.eq('course_id', courseId)
 
   const { data, error } = await q
