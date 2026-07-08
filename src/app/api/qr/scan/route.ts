@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: '잘못된 요청' }, { status: 400 })
   }
 
-  const { sessionId, token } = body
+  const { sessionId, token, meta } = body
   if (!sessionId || !token) {
     return Response.json({ ok: false, error: 'sessionId, token 필수' }, { status: 400 })
   }
@@ -118,6 +118,7 @@ export async function POST(req: Request) {
     .eq('user_id', userId)
     .maybeSingle()
 
+  const metaObj = meta && typeof meta === 'object' ? meta : null
   const fullRow: any = {
     session_id: sessionId,
     user_id: userId,
@@ -127,6 +128,7 @@ export async function POST(req: Request) {
     entry_lat: hasLoc ? lat : null,
     entry_lng: hasLoc ? lng : null,
     entry_distance_m: distance,
+    meta: metaObj,
     status: 'present',
   }
   // 좌표 컬럼이 없는 구버전 DB 폴백용
@@ -150,7 +152,7 @@ export async function POST(req: Request) {
   }
 
   let err = await writeError(fullRow)
-  if (err && /column|entry_lat|entry_lng|device_id/i.test(err)) {
+  if (err && /column|entry_lat|entry_lng|device_id|meta/i.test(err)) {
     err = await writeError(basicRow)
   }
   if (err && /device_id/i.test(err)) {

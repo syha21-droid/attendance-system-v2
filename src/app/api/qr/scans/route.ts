@@ -10,23 +10,22 @@ export async function GET(req: Request) {
   const sessionId = new URL(req.url).searchParams.get('session')
   if (!sessionId) return Response.json({ error: 'session 필수' }, { status: 400 })
 
+  const WITH_META =
+    'user_id, user_name, status, entry_at, last_seen_at, entry_distance_m, entry_lat, entry_lng, meta'
   const FULL =
     'user_id, user_name, status, entry_at, last_seen_at, entry_distance_m, entry_lat, entry_lng'
   const BASIC = 'user_id, user_name, status, entry_at, last_seen_at, entry_distance_m'
 
-  let res: any = await db
-    .from('attendance_records')
-    .select(FULL)
-    .eq('session_id', sessionId)
-    .order('entry_at', { ascending: false })
-
-  if (res.error) {
-    res = await db
+  const query = (cols: string) =>
+    db
       .from('attendance_records')
-      .select(BASIC)
+      .select(cols)
       .eq('session_id', sessionId)
       .order('entry_at', { ascending: false })
-  }
+
+  let res: any = await query(WITH_META)
+  if (res.error) res = await query(FULL)
+  if (res.error) res = await query(BASIC)
 
   if (res.error) return Response.json({ error: res.error.message }, { status: 500 })
 

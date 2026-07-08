@@ -44,6 +44,8 @@ alter table attendance_records add column if not exists entry_lat double precisi
 alter table attendance_records add column if not exists entry_lng double precision;
 alter table attendance_records add column if not exists exit_lat double precision;
 alter table attendance_records add column if not exists exit_lng double precision;
+-- 외부 참가자 부가정보(사업단/성함/지점/유입경로/소개자) 저장용
+alter table attendance_records add column if not exists meta jsonb;
 
 alter table attendance_sessions enable row level security;
 alter table attendance_records enable row level security;

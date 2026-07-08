@@ -59,6 +59,8 @@ export default function AdminScanPage() {
   const [extOrg, setExtOrg] = useState('')
   const [extName, setExtName] = useState('')
   const [extBranch, setExtBranch] = useState('')
+  const [extSource, setExtSource] = useState('') // 유입 경로
+  const [extReferrer, setExtReferrer] = useState('') // 지인 이름
   const [addingExt, setAddingExt] = useState(false)
   const [ready, setReady] = useState(false)
 
@@ -247,13 +249,22 @@ export default function AdminScanPage() {
     if (!nm) return toast.error('성함을 입력하세요')
     // 표시 이름: "사업단 / 성함 / 지점" (빈 칸은 자동 생략)
     const label = [org, nm, branch].filter(Boolean).join(' / ')
+    const referrer = extSource === '지인소개' ? extReferrer.trim() : ''
+    const meta = {
+      ext: true,
+      org,
+      name: nm,
+      branch,
+      source: extSource || '미기재',
+      referrer,
+    }
     setAddingExt(true)
     try {
-      const token = encodePayload({ v: 1, uid: 'ext-' + label, name: label, ts: Date.now() })
+      const token = encodePayload({ v: 1, uid: 'ext-' + label + '-' + Date.now().toString(36), name: label, ts: Date.now() })
       const res = await fetch('/api/qr/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session.id, token }),
+        body: JSON.stringify({ sessionId: session.id, token, meta }),
       })
       const d = await res.json()
       if (d.ok) {
@@ -261,6 +272,8 @@ export default function AdminScanPage() {
         setExtOrg('')
         setExtName('')
         setExtBranch('')
+        setExtSource('')
+        setExtReferrer('')
         refreshScans(session.id)
       } else {
         toast.error(d.error || '추가 실패')
@@ -452,18 +465,63 @@ export default function AdminScanPage() {
                   placeholder="지점"
                   className="rd-input"
                 />
+
+                {/* 유입 경로 */}
+                <div>
+                  <p style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.50)', margin: '4px 0 6px' }}>어떻게 오셨나요? (유입 경로)</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    {['지인소개', '직접알아봄', '광고보고', '기타'].map((s) => {
+                      const on = extSource === s
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setExtSource(on ? '' : s)}
+                          style={{
+                            padding: '9px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', borderRadius: '8px',
+                            background: on ? 'rgba(201,148,26,0.15)' : 'rgba(255,255,255,0.04)',
+                            border: on ? '1px solid #C9941A' : '1px solid rgba(255,255,255,0.10)',
+                            color: on ? '#C9941A' : 'rgba(255,255,255,0.60)',
+                          }}
+                        >
+                          {s}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* 지인소개일 때만 소개자 이름 */}
+                {extSource === '지인소개' && (
+                  <input
+                    value={extReferrer}
+                    onChange={(e) => setExtReferrer(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addExternal()}
+                    placeholder="누구 지인? (소개자 성함)"
+                    className="rd-input"
+                  />
+                )}
+
                 <button onClick={addExternal} disabled={addingExt} className="btn-gold" style={{ width: '100%', height: '44px', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                   <Plus style={{ width: '15px', height: '15px' }} /> {addingExt ? '추가 중...' : '명단에 추가'}
                 </button>
               </div>
-              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.30)', marginTop: '8px' }}>성함만 필수 · 사업단/지점은 선택. 명단에는 "사업단 / 성함 / 지점"으로 표시됩니다.</p>
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.30)', marginTop: '8px' }}>성함만 필수. 유입 경로는 통계에 자동 집계됩니다.</p>
             </div>
 
             {/* 인식된 명단 */}
             <div className="rd-surface p-4">
-              <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'white', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
-                <Users style={{ width: '16px', height: '16px', color: '#C9941A' }} /> 인식된 명단 ({scans.length}명)
-              </h3>
+              <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Users style={{ width: '16px', height: '16px', color: '#C9941A' }} /> 인식된 명단 ({scans.length}명)
+                </h3>
+                <button
+                  onClick={() => window.open(`/admin/scan/stats?session=${session.id}&name=${encodeURIComponent(session.name)}&radius=${session.radius_m}`, '_blank')}
+                  style={{ fontSize: '12px', fontWeight: '700', color: '#C9941A', background: 'rgba(201,148,26,0.10)', border: '1px solid rgba(201,148,26,0.35)', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer' }}
+                >
+                  📊 통계 보기
+                </button>
+              </div>
               {scans.length === 0 ? (
                 <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.30)', textAlign: 'center', padding: '18px 0' }}>아직 인식된 사람이 없습니다</p>
               ) : (
